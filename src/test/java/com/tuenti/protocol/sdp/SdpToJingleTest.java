@@ -1,23 +1,30 @@
 package com.tuenti.protocol.sdp;
 
-import org.junit.After;
+import com.tuenti.protocol.sdp.SdpToJingle;
+import com.tuenti.protocol.sdp.Utils;
+import net.java.sip.communicator.impl.protocol.jabber.extensions.jingle.*;
+import net.sourceforge.jsdp.SDPFactory;
+import net.sourceforge.jsdp.SDPParseException;
+import net.sourceforge.jsdp.SessionDescription;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import java.util.List;
+
 /**
- * Tests for {@link SdpToJingle}.
+ * Unit tests for the SdpToJingle class.
  *
- * @author Wijnand Warren <wwarren@tuenti.com>
+ * Copyright (c) Tuenti Technologies. All rights reserved.
+ * @author Manuel Peinado Gallego <mpeinado@tuenti.com>
  */
 @RunWith(JUnit4.class)
 public class SdpToJingleTest {
-
-	private static final String SDP_TEST_STRING = "v=0\r\n"
+	private static final String SAMPLE_SDP_MESSAGE = "v=0\r\n"
 			+ "o=- 123 1 IN IP4 127.0.0.1\r\n"
-			+ "s=\r\n"
+			+ "s=session\r\n"
 			+ "t=0 0\r\n"
 			+ "a=group:BUNDLE audio video\r\n"
 			+ "m=audio 36798 RTP/AVPF 103 104 110 107 9 102 108 0 8 106 105 13 127 126\r\n"
@@ -25,8 +32,8 @@ public class SdpToJingleTest {
 			+ "a=rtcp:36798 IN IP4 172.22.76.221\r\n"
 			+ "a=candidate:1 2 udp 1 172.22.76.221 47216 typ host generation 0\r\n"
 			+ "a=candidate:1 1 udp 1 172.22.76.221 48235 typ host generation 0\r\n"
-			+ "a=candidate:1 2 udp 0.9 172.22.76.221 36798 typ srflx generation 0\r\n"
-			+ "a=candidate:1 1 udp 0.9 172.22.76.221 50102 typ srflx generation 0\r\n"
+			+ "a=candidate:1 2 udp 2 172.22.76.221 36798 typ srflx generation 0\r\n"
+			+ "a=candidate:1 1 udp 2 172.22.76.221 50102 typ srflx generation 0\r\n"
 			+ "a=mid:audio\r\n"
 			+ "a=rtcp-mux\r\n"
 			+ "a=crypto:0 AES_CM_128_HMAC_SHA1_32 inline:keNcG3HezSNID7LmfDa9J4lfdUL8W1F7TNJKcbuy \r\n"
@@ -52,8 +59,8 @@ public class SdpToJingleTest {
 			+ "a=rtcp:39456 IN IP4 172.22.76.221\r\n"
 			+ "a=candidate:1 2 udp 1 172.22.76.221 40550 typ host generation 0\r\n"
 			+ "a=candidate:1 1 udp 1 172.22.76.221 53441 typ host generation 0\r\n"
-			+ "a=candidate:1 2 udp 0.9 172.22.76.221 46128 typ srflx generation 0\r\n"
-			+ "a=candidate:1 1 udp 0.9 172.22.76.221 39456 typ srflx generation 0\r\n"
+			+ "a=candidate:1 2 udp 2 172.22.76.221 46128 typ srflx generation 0\r\n"
+			+ "a=candidate:1 1 udp 2 172.22.76.221 39456 typ srflx generation 0\r\n"
 			+ "a=mid:video\r\n"
 			+ "a=rtcp-mux\r\n"
 			+ "a=crypto:0 AES_CM_128_HMAC_SHA1_80 inline:5ydJsA+FZVpAyqJMT/nW/UW+tcOmDvXJh/pPhNRe \r\n"
@@ -63,79 +70,180 @@ public class SdpToJingleTest {
 			+ "a=ssrc:43633328 cname:hsWuSQJxx7przmb8\r\n"
 			+ "a=ssrc:43633328 mslabel:stream_label\r\n"
 			+ "a=ssrc:43633328 label:video_label\r\n";
+	private SessionDescription sdp;
 
-	private static final String JINGLE_TEST_STRING = "<jingle sid='123'><content creator='initiator' name='video'>"
-			+ "<description xmlns='urn:xmpp:jingle:apps:video-rtp' profile='RTP/AVPF' media='video'><payload-type "
-			+ "id='100' name='VP8' clockrate='90000'/><payload-type id='101' name='red' clockrate='90000'/><payload-type"
-			+ " id='102' name='ulpfec' clockrate='90000'/><encryption required='1'><crypto "
-			+ "crypto-suite='AES_CM_128_HMAC_SHA1_80' key-params='inline:5ydJsA+FZVpAyqJMT/nW/UW+tcOmDvXJh/pPhNRe' "
-			+ "session-params='' tag='0'/></encryption><streams><stream cname='hsWuSQJxx7przmb8' mslabel='stream_label' "
-			+ "label='video_label'><ssrc>43633328</ssrc></stream></streams></description><transport "
-			+ "xmlns='urn:xmpp:jingle:transports:raw-udp:1'><candidate ip='172.22.76.221' port='39456' "
-			+ "generation='0'/></transport><transport xmlns='urn:xmpp:jingle:transports:ice-udp:1'><candidate "
-			+ "component='2' foundation='1' protocol='udp' priority='1' ip='172.22.76.221' port='40550' type='host' "
-			+ "generation='0'/><candidate component='1' foundation='1' protocol='udp' priority='1' ip='172.22.76.221' "
-			+ "port='53441' type='host' generation='0'/><candidate component='2' foundation='1' protocol='udp' "
-			+ "priority='0.9' ip='172.22.76.221' port='46128' type='srflx' generation='0'/><candidate component='1' "
-			+ "foundation='1' protocol='udp' priority='0.9' ip='172.22.76.221' port='39456' type='srflx' "
-			+ "generation='0'/></transport></content><content creator='initiator' name='audio'><description "
-			+ "xmlns='urn:xmpp:jingle:apps:rtp:1' profile='RTP/AVPF' media='audio'><payload-type id='103' name='ISAC' "
-			+ "clockrate='16000'/><payload-type id='104' name='ISAC' clockrate='32000'/><payload-type id='110' "
-			+ "name='CELT' clockrate='32000'/><payload-type id='107' name='speex' clockrate='16000'/><payload-type "
-			+ "id='9' name='G722' clockrate='16000'/><payload-type id='102' name='ILBC' clockrate='8000'/><payload-type "
-			+ "id='108' name='speex' clockrate='8000'/><payload-type id='0' name='PCMU' clockrate='8000'/><payload-type "
-			+ "id='8' name='PCMA' clockrate='8000'/><payload-type id='106' name='CN' clockrate='32000'/><payload-type "
-			+ "id='105' name='CN' clockrate='16000'/><payload-type id='13' name='CN' clockrate='8000'/><payload-type "
-			+ "id='127' name='red' clockrate='8000'/><payload-type id='126' name='telephone-event' "
-			+ "clockrate='8000'/><encryption required='1'><crypto crypto-suite='AES_CM_128_HMAC_SHA1_32' "
-			+ "key-params='inline:keNcG3HezSNID7LmfDa9J4lfdUL8W1F7TNJKcbuy' session-params='' "
-			+ "tag='0'/></encryption><streams><stream cname='hsWuSQJxx7przmb8' mslabel='stream_label' "
-			+ "label='audio_label'><ssrc>2570980487</ssrc></stream></streams></description><transport "
-			+ "xmlns='urn:xmpp:jingle:transports:raw-udp:1'><candidate ip='172.22.76.221' port='36798' "
-			+ "generation='0'/></transport><transport xmlns='urn:xmpp:jingle:transports:ice-udp:1'><candidate "
-			+ "component='2' foundation='1' protocol='udp' priority='1' ip='172.22.76.221' port='47216' type='host' "
-			+ "generation='0'/><candidate component='1' foundation='1' protocol='udp' priority='1' ip='172.22.76.221' "
-			+ "port='48235' type='host' generation='0'/><candidate component='2' foundation='1' protocol='udp' "
-			+ "priority='0.9' ip='172.22.76.221' port='36798' type='srflx' generation='0'/><candidate component='1' "
-			+ "foundation='1' protocol='udp' priority='0.9' ip='172.22.76.221' port='50102' type='srflx' "
-			+ "generation='0'/></transport></content></jingle>";
-
-	private SdpToJingle sdpToJingle;
-
-	/**
-	 * Sets up this test.
-	 */
 	@Before
 	public void setUp() {
-		sdpToJingle = new SdpToJingle();
+		try {
+			sdp = SDPFactory.parseSessionDescription(SAMPLE_SDP_MESSAGE);
+		} catch (SDPParseException e) {
+			e.printStackTrace();
+		}
 	}
-
-	/**
-	 * Tears down this test.
-	 */
-	@After
-	public void tearDown() {
-		sdpToJingle = null;
-	}
-
-	/**
-	 * Tests if converting an SDP string results in the correct Jingle stanza string.
-	 */
+	
 	@Test
-	public void testCreateJingleStanza() {
-		String message = "The converted SDP string is not the same as the expected Jingle stanza!";
-		String jingleStanza = sdpToJingle.createJingleStanza(SDP_TEST_STRING);
-		Assert.assertEquals(message, JINGLE_TEST_STRING, jingleStanza);
+	public void testJingleToSdp() {
+		JingleIQ jingle = SdpToJingle.jingleFromSdp(sdp);
+		Assert.assertTrue(jingle.getSID().equals("123"));
+		List<ContentPacketExtension> contentList = jingle.getContentList();
+		Assert.assertTrue(contentList.size() == 2);
+		for (ContentPacketExtension content : contentList) {
+			Assert.assertTrue(contentList.get(0).getChildExtensionsOfType(RtpDescriptionPacketExtension.class).size() == 1);
+			Assert.assertTrue(content.getCreator() == ContentPacketExtension.CreatorEnum.initiator);
+		}
+
+		ContentPacketExtension audio = contentList.get(0);
+		Assert.assertTrue(audio.getName().equals("audio"));
+		List<RtpDescriptionPacketExtension> packetExts = audio.getChildExtensionsOfType(RtpDescriptionPacketExtension.class);
+		Assert.assertTrue(packetExts.size() == 1);
+		RtpDescriptionPacketExtension packetExt = packetExts.get(0);
+		Assert.assertTrue(packetExt.getMedia().equals("audio"));
+
+		List<PayloadTypePacketExtension> payloadExts = packetExt.getChildExtensionsOfType(PayloadTypePacketExtension.class);
+		Assert.assertTrue(payloadExts.size() == 14);
+		Assert.assertTrue(payloadExts.get(7).getID() == 0);
+		Assert.assertTrue(payloadExts.get(7).getName().equals("PCMU"));
+		Assert.assertTrue(payloadExts.get(7).getClockrate() == 8000);
+
+		List<RawUdpTransportPacketExtension> rawUdpExts = audio.getChildExtensionsOfType(RawUdpTransportPacketExtension.class);
+		Assert.assertTrue(rawUdpExts.size() == 1);
+		Assert.assertTrue(rawUdpExts.get(0).getCandidateList().size() == 1);
+		Assert.assertTrue(rawUdpExts.get(0).getCandidateList().get(0).getIP().equals("172.22.76.221"));
+		Assert.assertTrue(rawUdpExts.get(0).getCandidateList().get(0).getPort() == 36798);
+		Assert.assertTrue(rawUdpExts.get(0).getCandidateList().get(0).getGeneration() == 0);
+
+		List<IceUdpTransportPacketExtension> iceUdpExts = audio.getChildExtensionsOfType(IceUdpTransportPacketExtension.class);
+		iceUdpExts = Utils.filterByClass(iceUdpExts, IceUdpTransportPacketExtension.class);
+		Assert.assertTrue(iceUdpExts.size() == 4);
+		for (int i = 0; i < iceUdpExts.size(); ++i) {
+			Assert.assertTrue(iceUdpExts.get(i).getCandidateList().size() == 1);
+		}
+		verifyCandidateExtension(iceUdpExts.get(1).getCandidateList().get(0), 1, 1, "udp", 1, 0,
+				CandidateType.host, "172.22.76.221", 48235);
+		verifyCandidateExtension(iceUdpExts.get(2).getCandidateList().get(0), 2, 1, "udp", 2, 0,
+				CandidateType.srflx, "172.22.76.221", 36798);
+
+		Assert.assertTrue(contentList.get(1).getName().equals("video"));
+		ContentPacketExtension video = contentList.get(1);
+		Assert.assertTrue(video.getName().equals("video"));
+		packetExts = video.getChildExtensionsOfType(RtpDescriptionPacketExtension.class);
+		Assert.assertTrue(packetExts.size() == 1);
+		packetExt = packetExts.get(0);
+		Assert.assertTrue(packetExt.getMedia().equals("video"));
+
+		payloadExts = packetExt.getChildExtensionsOfType(PayloadTypePacketExtension.class);
+		Assert.assertTrue(payloadExts.size() == 3);
+		Assert.assertTrue(payloadExts.get(2).getID() == 102);
+		Assert.assertTrue(payloadExts.get(2).getName().equals("ulpfec"));
+		Assert.assertTrue(payloadExts.get(2).getClockrate() == 90000);
+
+		rawUdpExts = video.getChildExtensionsOfType(RawUdpTransportPacketExtension.class);
+		Assert.assertTrue(rawUdpExts.size() == 1);
+		Assert.assertTrue(rawUdpExts.get(0).getCandidateList().size() == 1);
+		Assert.assertTrue(rawUdpExts.get(0).getCandidateList().get(0).getIP().equals("172.22.76.221"));
+		Assert.assertTrue(rawUdpExts.get(0).getCandidateList().get(0).getPort() == 39456);
+		Assert.assertTrue(rawUdpExts.get(0).getCandidateList().get(0).getGeneration() == 0);
+
+		iceUdpExts = video.getChildExtensionsOfType(IceUdpTransportPacketExtension.class);
+		iceUdpExts = Utils.filterByClass(iceUdpExts, IceUdpTransportPacketExtension.class);
+		Assert.assertTrue(iceUdpExts.size() == 4);
+		for (int i = 0; i < iceUdpExts.size(); ++i) {
+			Assert.assertTrue(iceUdpExts.get(i).getCandidateList().size() == 1);
+		}
+		verifyCandidateExtension(iceUdpExts.get(1).getCandidateList().get(0), 1, 1, "udp", 1, 0,
+				CandidateType.host, "172.22.76.221", 53441);
+		verifyCandidateExtension(iceUdpExts.get(2).getCandidateList().get(0), 2, 1, "udp", 2, 0,
+				CandidateType.srflx, "172.22.76.221", 46128);
 	}
 
-	/**
-	 * Tests if converting an SDP string results in the correct Jingle stanza string.
-	 */
 	@Test
-	public void testParseJingleStanza() {
-		String message = "The converted Jingle stanza is not the same as the expected SDP string!";
-		String sdp = sdpToJingle.parseJingleStanza(JINGLE_TEST_STRING);
-		Assert.assertEquals(message, SDP_TEST_STRING, sdp);
+	public void testSdpToJingle() {
+		// SDP => Jingle
+		JingleIQ jingle = SdpToJingle.jingleFromSdp(sdp);
+		// Jingle => SDP
+		sdp = SdpToJingle.sdpFromJingle(jingle);
+		jingle = SdpToJingle.jingleFromSdp(sdp);
+
+		Assert.assertTrue(jingle.getSID().equals("123"));
+		List<ContentPacketExtension> contentList = jingle.getContentList();
+		Assert.assertTrue(contentList.size() == 2);
+		for (ContentPacketExtension content : contentList) {
+			Assert.assertTrue(contentList.get(0).getChildExtensionsOfType(RtpDescriptionPacketExtension.class).size() == 1);
+			Assert.assertTrue(content.getCreator() == ContentPacketExtension.CreatorEnum.initiator);
+		}
+
+		ContentPacketExtension audio = contentList.get(0);
+		Assert.assertTrue(audio.getName().equals("audio"));
+		List<RtpDescriptionPacketExtension> packetExts = audio.getChildExtensionsOfType(RtpDescriptionPacketExtension.class);
+		Assert.assertTrue(packetExts.size() == 1);
+		RtpDescriptionPacketExtension packetExt = packetExts.get(0);
+		Assert.assertTrue(packetExt.getMedia().equals("audio"));
+
+		List<PayloadTypePacketExtension> payloadExts = packetExt.getChildExtensionsOfType(PayloadTypePacketExtension.class);
+		Assert.assertTrue(payloadExts.size() == 14);
+		Assert.assertTrue(payloadExts.get(7).getID() == 0);
+		Assert.assertTrue(payloadExts.get(7).getName().equals("PCMU"));
+		Assert.assertTrue(payloadExts.get(7).getClockrate() == 8000);
+
+		List<RawUdpTransportPacketExtension> rawUdpExts = audio.getChildExtensionsOfType(RawUdpTransportPacketExtension.class);
+		Assert.assertTrue(rawUdpExts.size() == 1);
+		Assert.assertTrue(rawUdpExts.get(0).getCandidateList().size() == 1);
+		Assert.assertTrue(rawUdpExts.get(0).getCandidateList().get(0).getIP().equals("172.22.76.221"));
+		Assert.assertTrue(rawUdpExts.get(0).getCandidateList().get(0).getGeneration() == 0);
+
+		List<IceUdpTransportPacketExtension> iceUdpExts = audio.getChildExtensionsOfType(IceUdpTransportPacketExtension.class);
+		iceUdpExts = Utils.filterByClass(iceUdpExts, IceUdpTransportPacketExtension.class);
+		Assert.assertTrue(iceUdpExts.size() == 4);
+		for (int i = 0; i < iceUdpExts.size(); ++i) {
+			Assert.assertTrue(iceUdpExts.get(i).getCandidateList().size() == 1);
+		}
+		verifyCandidateExtension(iceUdpExts.get(1).getCandidateList().get(0), 1, 1, "udp", 1, 0,
+				CandidateType.host, "172.22.76.221", 48235);
+		verifyCandidateExtension(iceUdpExts.get(2).getCandidateList().get(0), 2, 1, "udp", 2, 0,
+				CandidateType.srflx, "172.22.76.221", 36798);
+
+		Assert.assertTrue(contentList.get(1).getName().equals("video"));
+		ContentPacketExtension video = contentList.get(1);
+		Assert.assertTrue(video.getName().equals("video"));
+		packetExts = video.getChildExtensionsOfType(RtpDescriptionPacketExtension.class);
+		Assert.assertTrue(packetExts.size() == 1);
+		packetExt = packetExts.get(0);
+		Assert.assertTrue(packetExt.getMedia().equals("video"));
+
+		payloadExts = packetExt.getChildExtensionsOfType(PayloadTypePacketExtension.class);
+		Assert.assertTrue(payloadExts.size() == 3);
+		Assert.assertTrue(payloadExts.get(2).getID() == 102);
+		Assert.assertTrue(payloadExts.get(2).getName().equals("ulpfec"));
+		Assert.assertTrue(payloadExts.get(2).getClockrate() == 90000);
+
+		rawUdpExts = video.getChildExtensionsOfType(RawUdpTransportPacketExtension.class);
+		Assert.assertTrue(rawUdpExts.size() == 1);
+		Assert.assertTrue(rawUdpExts.get(0).getCandidateList().size() == 1);
+		Assert.assertTrue(rawUdpExts.get(0).getCandidateList().get(0).getIP().equals("172.22.76.221"));
+		Assert.assertTrue(rawUdpExts.get(0).getCandidateList().get(0).getGeneration() == 0);
+
+		iceUdpExts = video.getChildExtensionsOfType(IceUdpTransportPacketExtension.class);
+		iceUdpExts = Utils.filterByClass(iceUdpExts, IceUdpTransportPacketExtension.class);
+		Assert.assertTrue(iceUdpExts.size() == 4);
+		for (int i = 0; i < iceUdpExts.size(); ++i) {
+			Assert.assertTrue(iceUdpExts.get(i).getCandidateList().size() == 1);
+		}
+		verifyCandidateExtension(iceUdpExts.get(1).getCandidateList().get(0), 1, 1, "udp", 1, 0,
+				CandidateType.host, "172.22.76.221", 53441);
+		verifyCandidateExtension(iceUdpExts.get(2).getCandidateList().get(0), 2, 1, "udp", 2, 0,
+				CandidateType.srflx, "172.22.76.221", 46128);
 	}
 
+	private static void verifyCandidateExtension(CandidatePacketExtension candidateExt, int component, int foundation,
+												 String protocol, int priority, int generation, CandidateType type,
+												 String ip, int port) {
+		Assert.assertTrue(candidateExt.getComponent() == component);
+		Assert.assertTrue(candidateExt.getFoundation() == foundation);
+		Assert.assertTrue(candidateExt.getProtocol().equals(protocol));
+		Assert.assertTrue(candidateExt.getPriority() == priority);
+		Assert.assertTrue(candidateExt.getGeneration() == generation);
+		Assert.assertTrue(candidateExt.getType() == type);
+		Assert.assertTrue(candidateExt.getIP().equals(ip));
+		Assert.assertTrue(candidateExt.getPort() == port);
+	}
 }
