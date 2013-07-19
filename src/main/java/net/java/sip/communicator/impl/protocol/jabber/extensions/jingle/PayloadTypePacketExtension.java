@@ -91,7 +91,7 @@ public class PayloadTypePacketExtension extends AbstractPacketExtension
      *
      * @param clockrate the sampling frequency in Hertz used by this encoding.
      */
-    public void setClockrate(int clockrate)
+    public void setClockrate(String clockrate)
     {
         super.setAttribute(CLOCKRATE_ATTR_NAME, clockrate);
     }
@@ -101,9 +101,9 @@ public class PayloadTypePacketExtension extends AbstractPacketExtension
      *
      * @return the sampling frequency in Hertz used by this encoding.
      */
-    public int getClockrate()
+    public String getClockrate()
     {
-        return getAttributeAsInt(CLOCKRATE_ATTR_NAME);
+        return getAttributeAsString(CLOCKRATE_ATTR_NAME);
     }
 
     /**

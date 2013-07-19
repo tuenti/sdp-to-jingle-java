@@ -36,6 +36,7 @@ public class SdpToJingleTest {
 			+ "a=mid:audio\r\n"
 			+ "{{RTCP-MUX}}" // placeholder for a=rtcp-mux\r\n
 			+ "a=crypto:0 AES_CM_128_HMAC_SHA1_32 inline:keNcG3HezSNID7LmfDa9J4lfdUL8W1F7TNJKcbuy \r\n"
+			+ "a=rtpmap:111 opus/48000/2\r\n"
 			+ "a=rtpmap:103 ISAC/16000\r\n"
 			+ "a=rtpmap:104 ISAC/32000\r\n"
 			+ "a=rtpmap:110 CELT/32000\r\n"
@@ -105,10 +106,13 @@ public class SdpToJingleTest {
 		Assert.assertTrue(packetExt.getMedia().equals("audio"));
 
 		List<PayloadTypePacketExtension> payloadExts = packetExt.getChildExtensionsOfType(PayloadTypePacketExtension.class);
-		Assert.assertTrue(payloadExts.size() == 14);
-		Assert.assertTrue(payloadExts.get(7).getID() == 0);
-		Assert.assertTrue(payloadExts.get(7).getName().equals("PCMU"));
-		Assert.assertTrue(payloadExts.get(7).getClockrate() == 8000);
+		Assert.assertTrue(payloadExts.size() == 15);
+		Assert.assertTrue(payloadExts.get(0).getID() == 111);
+		Assert.assertTrue(payloadExts.get(0).getName().equals("opus"));
+		Assert.assertTrue(payloadExts.get(0).getClockrate().equals("48000/2"));
+		Assert.assertTrue(payloadExts.get(8).getID() == 0);
+		Assert.assertTrue(payloadExts.get(8).getName().equals("PCMU"));
+		Assert.assertTrue(payloadExts.get(8).getClockrate().equals("8000"));
 
 		List<RawUdpTransportPacketExtension> rawUdpExts = audio.getChildExtensionsOfType(RawUdpTransportPacketExtension.class);
 		Assert.assertTrue(rawUdpExts.size() == 1);
@@ -140,7 +144,7 @@ public class SdpToJingleTest {
 		Assert.assertTrue(payloadExts.size() == 3);
 		Assert.assertTrue(payloadExts.get(2).getID() == 102);
 		Assert.assertTrue(payloadExts.get(2).getName().equals("ulpfec"));
-		Assert.assertTrue(payloadExts.get(2).getClockrate() == 90000);
+		Assert.assertTrue(payloadExts.get(2).getClockrate().equals("90000"));
 
 		rawUdpExts = video.getChildExtensionsOfType(RawUdpTransportPacketExtension.class);
 		Assert.assertTrue(rawUdpExts.size() == 1);
@@ -188,10 +192,10 @@ public class SdpToJingleTest {
 		Assert.assertTrue(packetExt.getMedia().equals("audio"));
 
 		List<PayloadTypePacketExtension> payloadExts = packetExt.getChildExtensionsOfType(PayloadTypePacketExtension.class);
-		Assert.assertTrue(payloadExts.size() == 14);
-		Assert.assertTrue(payloadExts.get(7).getID() == 0);
-		Assert.assertTrue(payloadExts.get(7).getName().equals("PCMU"));
-		Assert.assertTrue(payloadExts.get(7).getClockrate() == 8000);
+		Assert.assertTrue(payloadExts.size() == 15);
+		Assert.assertTrue(payloadExts.get(8).getID() == 0);
+		Assert.assertTrue(payloadExts.get(8).getName().equals("PCMU"));
+		Assert.assertTrue(payloadExts.get(8).getClockrate().equals("8000"));
 
 		List<RawUdpTransportPacketExtension> rawUdpExts = audio.getChildExtensionsOfType(RawUdpTransportPacketExtension.class);
 		Assert.assertTrue(rawUdpExts.size() == 1);
@@ -222,7 +226,7 @@ public class SdpToJingleTest {
 		Assert.assertTrue(payloadExts.size() == 3);
 		Assert.assertTrue(payloadExts.get(2).getID() == 102);
 		Assert.assertTrue(payloadExts.get(2).getName().equals("ulpfec"));
-		Assert.assertTrue(payloadExts.get(2).getClockrate() == 90000);
+		Assert.assertTrue(payloadExts.get(2).getClockrate().equals("90000"));
 
 		rawUdpExts = video.getChildExtensionsOfType(RawUdpTransportPacketExtension.class);
 		Assert.assertTrue(rawUdpExts.size() == 1);
@@ -258,6 +262,7 @@ public class SdpToJingleTest {
 	@Test
 	public void testRtcpMuxPresentInSdp() {
 		prepare(true);
+		System.out.println(sdp.toString());
 		MediaDescription audio = sdp.getMediaDescriptions()[0];
 		Assert.assertTrue(audio.getAttributes("rtcp-mux").length == 1);
 	}
@@ -280,7 +285,7 @@ public class SdpToJingleTest {
 			List<RtpDescriptionPacketExtension> descriptionExts = content.getChildExtensionsOfType(RtpDescriptionPacketExtension.class);
 			RtpDescriptionPacketExtension descriptionExt = descriptionExts.get(0);
 			List<RtcpMuxExtension> rtcpMuxExts = descriptionExt.getChildExtensionsOfType(RtcpMuxExtension.class);
-			Assert.assertTrue(rtcpMuxExts.size() == 0);
+			Assert.assertTrue(rtcpMuxExts.size() == 1);
 		}
 	}
 

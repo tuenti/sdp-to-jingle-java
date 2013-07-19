@@ -175,7 +175,11 @@ public class SdpToJingle {
 				String[] params = attr.getValue().split("[ /]");
 				payloadExt.setId(Integer.parseInt(params[0]));
 				payloadExt.setName(params[1]);
-				payloadExt.setClockrate(Integer.parseInt(params[2]));
+				StringBuilder clockRate = new StringBuilder(params[2]);
+				if (params.length > 3) {
+					clockRate.append("/").append(params[3]);
+				}
+				payloadExt.setClockrate(clockRate.toString());
 				rtpExt.addChildExtension(payloadExt);
 			}
 
