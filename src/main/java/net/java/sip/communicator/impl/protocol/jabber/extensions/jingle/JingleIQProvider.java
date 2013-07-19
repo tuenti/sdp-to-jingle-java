@@ -44,6 +44,14 @@ public class JingleIQProvider implements IQProvider
                 <PayloadTypePacketExtension>(
                                 PayloadTypePacketExtension.class));
 
+        //<rtcp-mux/> provider
+        providerManager.addExtensionProvider(
+            RtcpMuxExtension.ELEMENT_NAME,
+            RtpDescriptionPacketExtension.NAMESPACE,
+            new DefaultPacketExtensionProvider
+                <RtcpMuxExtension>(
+                                RtcpMuxExtension.class));
+
         //<parameter/> provider
         providerManager.addExtensionProvider(
             ParameterPacketExtension.ELEMENT_NAME,

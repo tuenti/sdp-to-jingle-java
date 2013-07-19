@@ -92,13 +92,13 @@ public class SdpToJingle {
 					mediaDescription.addAttribute(iceUdpAttr);
 				}
 
+				// "a=sendrecv"
+				Attribute sendrecvAttr = new Attribute("sendrecv");
+				mediaDescription.addAttribute(sendrecvAttr);
+
 				// "a=mid:audio"
 				Attribute midAttr = new Attribute("mid", contentType);
 				mediaDescription.addAttribute(midAttr);
-
-				// "a=rtcp-mux"
-				Attribute muxAttr = new Attribute("rtcp-mux");
-				mediaDescription.addAttribute(muxAttr);
 
 				// TODO "a=crypto:0 AES_CM_128_HMAC_SHA1_32 inline:keNcG3HezSNID7LmfDa9J4lfdUL8W1F7TNJKcbuy"
 
@@ -109,6 +109,13 @@ public class SdpToJingle {
 							+ "/" + payloadExt.getClockrate();
 					Attribute rtpmapAttr = new Attribute("rtpmap", value);
 					mediaDescription.addAttribute(rtpmapAttr);
+				}
+
+				// "a=rtcp-mux"
+				List<RtcpMuxExtension> rtcpMuxExts = descriptionExt.getChildExtensionsOfType(RtcpMuxExtension.class);
+				if (!rtcpMuxExts.isEmpty()) {
+					Attribute muxAttr = new Attribute("rtcp-mux");
+					mediaDescription.addAttribute(muxAttr);
 				}
 
 				// TODO
@@ -170,6 +177,12 @@ public class SdpToJingle {
 				payloadExt.setName(params[1]);
 				payloadExt.setClockrate(Integer.parseInt(params[2]));
 				rtpExt.addChildExtension(payloadExt);
+			}
+
+			Attribute[] rtcpMuxAttrs = mediaDescription.getAttributes("rtcp-mux");
+			if (rtcpMuxAttrs.length > 0) {
+				RtcpMuxExtension rtpcMuxExt = new RtcpMuxExtension();
+				rtpExt.addChildExtension(rtpcMuxExt);
 			}
 
 			// TODO MPG missing extension "<streams>" (not in XEP-166)

@@ -3,9 +3,7 @@ package com.tuenti.protocol.sdp;
 import com.tuenti.protocol.sdp.SdpToJingle;
 import com.tuenti.protocol.sdp.Utils;
 import net.java.sip.communicator.impl.protocol.jabber.extensions.jingle.*;
-import net.sourceforge.jsdp.SDPFactory;
-import net.sourceforge.jsdp.SDPParseException;
-import net.sourceforge.jsdp.SessionDescription;
+import net.sourceforge.jsdp.*;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -34,8 +32,9 @@ public class SdpToJingleTest {
 			+ "a=candidate:1 1 udp 1 172.22.76.221 48235 typ host generation 0\r\n"
 			+ "a=candidate:1 2 udp 2 172.22.76.221 36798 typ srflx generation 0\r\n"
 			+ "a=candidate:1 1 udp 2 172.22.76.221 50102 typ srflx generation 0\r\n"
+			+ "a=sendrecv\r\n"
 			+ "a=mid:audio\r\n"
-			+ "a=rtcp-mux\r\n"
+			+ "{{RTCP-MUX}}" // placeholder for a=rtcp-mux\r\n
 			+ "a=crypto:0 AES_CM_128_HMAC_SHA1_32 inline:keNcG3HezSNID7LmfDa9J4lfdUL8W1F7TNJKcbuy \r\n"
 			+ "a=rtpmap:103 ISAC/16000\r\n"
 			+ "a=rtpmap:104 ISAC/32000\r\n"
@@ -61,8 +60,9 @@ public class SdpToJingleTest {
 			+ "a=candidate:1 1 udp 1 172.22.76.221 53441 typ host generation 0\r\n"
 			+ "a=candidate:1 2 udp 2 172.22.76.221 46128 typ srflx generation 0\r\n"
 			+ "a=candidate:1 1 udp 2 172.22.76.221 39456 typ srflx generation 0\r\n"
+			+ "a=sendrecv\r\n"
 			+ "a=mid:video\r\n"
-			+ "a=rtcp-mux\r\n"
+			+ "{{RTCP-MUX}}" // placeholder for a=rtcp-mux\r\n
 			+ "a=crypto:0 AES_CM_128_HMAC_SHA1_80 inline:5ydJsA+FZVpAyqJMT/nW/UW+tcOmDvXJh/pPhNRe \r\n"
 			+ "a=rtpmap:100 VP8/90000\r\n"
 			+ "a=rtpmap:101 red/90000\r\n"
@@ -72,17 +72,22 @@ public class SdpToJingleTest {
 			+ "a=ssrc:43633328 label:video_label\r\n";
 	private SessionDescription sdp;
 
-	@Before
-	public void setUp() {
+	public void prepare() {
+		prepare(true);
+	}
+
+	public void prepare(boolean includeRtcpMuxAttr) {
 		try {
-			sdp = SDPFactory.parseSessionDescription(SAMPLE_SDP_MESSAGE);
+			String sdpMessage = SAMPLE_SDP_MESSAGE.replace("{{RTCP-MUX}}", includeRtcpMuxAttr ? "a=rtcp-mux\r\n" : "");
+			sdp = SDPFactory.parseSessionDescription(sdpMessage);
 		} catch (SDPParseException e) {
 			e.printStackTrace();
 		}
 	}
 	
 	@Test
-	public void testJingleToSdp() {
+	public void testSdpToJingle() {
+		prepare();
 		JingleIQ jingle = SdpToJingle.jingleFromSdp(sdp);
 		Assert.assertTrue(jingle.getSID().equals("123"));
 		List<ContentPacketExtension> contentList = jingle.getContentList();
@@ -157,11 +162,14 @@ public class SdpToJingleTest {
 	}
 
 	@Test
-	public void testSdpToJingle() {
+	public void testJingleToSdp() {
+		prepare();
 		// SDP => Jingle
 		JingleIQ jingle = SdpToJingle.jingleFromSdp(sdp);
+		System.out.println(jingle.toXML());
 		// Jingle => SDP
 		sdp = SdpToJingle.sdpFromJingle(jingle);
+		System.out.println(sdp.toString());
 		jingle = SdpToJingle.jingleFromSdp(sdp);
 
 		Assert.assertTrue(jingle.getSID().equals("123"));
@@ -245,5 +253,49 @@ public class SdpToJingleTest {
 		Assert.assertTrue(candidateExt.getType() == type);
 		Assert.assertTrue(candidateExt.getIP().equals(ip));
 		Assert.assertTrue(candidateExt.getPort() == port);
+	}
+
+	@Test
+	public void testRtcpMuxPresentInSdp() {
+		prepare(true);
+		MediaDescription audio = sdp.getMediaDescriptions()[0];
+		Assert.assertTrue(audio.getAttributes("rtcp-mux").length == 1);
+	}
+
+	@Test
+	public void testRtcpMuxAbsentInSdp() {
+		prepare(false);
+		MediaDescription audio = sdp.getMediaDescriptions()[0];
+		Assert.assertTrue(audio.getAttributes("rtcp-mux").length == 0);
+	}
+
+	@Test
+	public void testRtcpMuxPresentInJingle() {
+		prepare(true);
+		JingleIQ jingle = SdpToJingle.jingleFromSdp(sdp);
+
+		List<ContentPacketExtension> contents = jingle.getContentList();
+		for (ContentPacketExtension content : contents) {
+
+			List<RtpDescriptionPacketExtension> descriptionExts = content.getChildExtensionsOfType(RtpDescriptionPacketExtension.class);
+			RtpDescriptionPacketExtension descriptionExt = descriptionExts.get(0);
+			List<RtcpMuxExtension> rtcpMuxExts = descriptionExt.getChildExtensionsOfType(RtcpMuxExtension.class);
+			Assert.assertTrue(rtcpMuxExts.size() == 0);
+		}
+	}
+
+	@Test
+	public void testRtcpMuxAbsentInJingle() {
+		prepare(false);
+		JingleIQ jingle = SdpToJingle.jingleFromSdp(sdp);
+
+		List<ContentPacketExtension> contents = jingle.getContentList();
+		for (ContentPacketExtension content : contents) {
+
+			List<RtpDescriptionPacketExtension> descriptionExts = content.getChildExtensionsOfType(RtpDescriptionPacketExtension.class);
+			RtpDescriptionPacketExtension descriptionExt = descriptionExts.get(0);
+			List<RtcpMuxExtension> rtcpMuxExts = descriptionExt.getChildExtensionsOfType(RtcpMuxExtension.class);
+			Assert.assertTrue(rtcpMuxExts.size() == 0);
+		}
 	}
 }
