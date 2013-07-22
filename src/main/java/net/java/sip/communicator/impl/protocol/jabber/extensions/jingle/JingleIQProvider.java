@@ -80,7 +80,28 @@ public class JingleIQProvider implements IQProvider
                 RtpDescriptionPacketExtension.NAMESPACE,
                 new DefaultPacketExtensionProvider
                         <CryptoPacketExtension>(CryptoPacketExtension.class));
-        
+
+        //<streams/> provider
+        providerManager.addExtensionProvider(
+                StreamsPacketExtension.ELEMENT_NAME,
+                RtpDescriptionPacketExtension.NAMESPACE,
+                new DefaultPacketExtensionProvider
+                        <StreamsPacketExtension>(StreamsPacketExtension.class));
+
+        //<stream/> provider
+        providerManager.addExtensionProvider(
+                StreamPacketExtension.ELEMENT_NAME,
+                RtpDescriptionPacketExtension.NAMESPACE,
+                new DefaultPacketExtensionProvider
+                        <StreamPacketExtension>(StreamPacketExtension.class));
+
+        //<ssrc/> provider
+        providerManager.addExtensionProvider(
+                SsrcPacketExtension.ELEMENT_NAME,
+                RtpDescriptionPacketExtension.NAMESPACE,
+                new DefaultPacketExtensionProvider
+                        <SsrcPacketExtension>(SsrcPacketExtension.class));
+
         //<zrtp-hash/> provider
         providerManager.addExtensionProvider(
             ZrtpHashPacketExtension.ELEMENT_NAME,

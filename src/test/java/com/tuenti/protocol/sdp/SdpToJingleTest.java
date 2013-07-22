@@ -329,4 +329,42 @@ public class SdpToJingleTest {
 		Assert.assertTrue(text.contains("a=crypto:0 AES_CM_128_HMAC_SHA1_32 inline:keNcG3HezSNID7LmfDa9J4lfdUL8W1F7TNJKcbuy"));
 		Assert.assertTrue(text.contains("a=crypto:0 AES_CM_128_HMAC_SHA1_80 inline:5ydJsA+FZVpAyqJMT/nW/UW+tcOmDvXJh/pPhNRe"));
 	}
+
+	@Test
+	public void testStreamsPresentInJingle() {
+		prepare(true);
+		JingleIQ jingle = SdpToJingle.jingleFromSdp(sdp);
+		List<ContentPacketExtension> contents = jingle.getContentList();
+		ContentPacketExtension audio = contents.get(0);
+		List<RtpDescriptionPacketExtension> descriptionExts = audio.getChildExtensionsOfType(RtpDescriptionPacketExtension.class);
+		RtpDescriptionPacketExtension descriptionExt = descriptionExts.get(0);
+
+		List<StreamsPacketExtension> streamsExts = descriptionExt.getChildExtensionsOfType(StreamsPacketExtension.class);
+		Assert.assertTrue(streamsExts.size() == 1);
+		StreamsPacketExtension streamsExt = streamsExts.get(0);
+		List<StreamPacketExtension> streamExts = streamsExt.getStreamList();
+		Assert.assertTrue(streamExts.size() == 1);
+		StreamPacketExtension streamExt = streamExts.get(0);
+		Assert.assertTrue(streamExt.getAttributeNames().size() == 3);
+		Assert.assertEquals(streamExt.getAttribute("cname"), "hsWuSQJxx7przmb8");
+		Assert.assertEquals(streamExt.getAttribute("mslabel"), "stream_label");
+		Assert.assertEquals(streamExt.getAttribute("label"), "audio_label");
+		SsrcPacketExtension ssrcExt = streamExt.getSsrc();
+		Assert.assertEquals(ssrcExt.getText(), "2570980487");
+	}
+
+	@Test
+	public void testSsrcPresentInSdp() {
+		prepare(true);
+		JingleIQ jingle = SdpToJingle.jingleFromSdp(sdp);
+		sdp = SdpToJingle.sdpFromJingle(jingle);
+		String text = sdp.toString();
+		Assert.assertTrue(text.contains("a=ssrc:2570980487 cname:hsWuSQJxx7przmb8"));
+		Assert.assertTrue(text.contains("a=ssrc:2570980487 mslabel:stream_label"));
+		Assert.assertTrue(text.contains("a=ssrc:2570980487 label:audio_label"));
+
+		Assert.assertTrue(text.contains("a=ssrc:43633328 cname:hsWuSQJxx7przmb8"));
+		Assert.assertTrue(text.contains("a=ssrc:43633328 mslabel:stream_label"));
+		Assert.assertTrue(text.contains("a=ssrc:43633328 label:video_label"));
+	}
 }

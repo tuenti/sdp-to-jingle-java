@@ -3,7 +3,9 @@ package com.tuenti.protocol.sdp;
 import net.java.sip.communicator.impl.protocol.jabber.extensions.jingle.*;
 import net.sourceforge.jsdp.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Converts a PeerConnection SDP Message to Jingle and vice-versa.
@@ -100,8 +102,7 @@ public class SdpToJingle {
 				Attribute midAttr = new Attribute("mid", contentType);
 				mediaDescription.addAttribute(midAttr);
 
-				// TODO "a=crypto:0 AES_CM_128_HMAC_SHA1_32 inline:keNcG3HezSNID7LmfDa9J4lfdUL8W1F7TNJKcbuy"
-
+				// "a=rtpmap:106 CN/32000"
 				payloadExts = descriptionExt.getChildExtensionsOfType(PayloadTypePacketExtension.class);
 				for (PayloadTypePacketExtension payloadExt : payloadExts) {
 					String value = payloadExt.getID()
@@ -132,11 +133,21 @@ public class SdpToJingle {
 					mediaDescription.addAttribute(muxAttr);
 				}
 
-				// TODO
 				// "a=ssrc:2570980487 cname:hsWuSQJxx7przmb8"
 				// "a=ssrc:2570980487 mslabel:stream_label"
 				// "a=ssrc:2570980487 label:audio_label"
-				// (Extracted from <streams> element in Jingle).
+				List<StreamsPacketExtension> streamsExts = descriptionExt.getChildExtensionsOfType(StreamsPacketExtension.class);
+				if (!streamsExts.isEmpty()) {
+					List<StreamPacketExtension> streamExts = streamsExts.get(0).getStreamList();
+					StreamPacketExtension streamExt = streamExts.get(0);
+					List<String> attrNames = streamExt.getAttributeNames();
+					SsrcPacketExtension ssrcExt = streamExt.getSsrc();
+					for (String attrName : attrNames) {
+						String value = ssrcExt.getText() + " " + attrName + ":" + streamExt.getAttributeAsString(attrName);
+						attr = new Attribute("ssrc", value);
+						mediaDescription.addAttribute(attr);
+					}
+				}
 
 				result.addMediaDescription(mediaDescription);
 			}
@@ -221,8 +232,35 @@ public class SdpToJingle {
 				rtpExt.addChildExtension(rtpcMuxExt);
 			}
 
-			// TODO MPG missing extension "<streams>" (not in XEP-166)
-			// (Read from ssrc line in SDP).
+			// <streams><stream><ssrc>
+			Attribute[] ssrcAttrs = mediaDescription.getAttributes("ssrc");
+			StreamsPacketExtension streamsExt = null;
+			if (cryptoAttrs != null && cryptoAttrs.length > 0) {
+				streamsExt = new StreamsPacketExtension();
+				rtpExt.addChildExtension(streamsExt);
+			}
+			Map<String, Map<String, String>> streams = new HashMap<String, Map<String, String>>();
+			for (Attribute attr : ssrcAttrs) {
+				String[] params = attr.getValue().split(" ");
+				Map<String, String> map = streams.get(params[0]);
+				if (map == null) {
+					map = new HashMap<String, String>();
+					streams.put(params[0], map);
+				}
+				String[] kv = params[1].split(":");
+				map.put(kv[0], kv[1]);
+			}
+			for (Map.Entry<String, Map<String, String>> stream : streams.entrySet()) {
+				StreamPacketExtension streamExt = new StreamPacketExtension();
+				Map<String, String> streamAttrs = stream.getValue();
+				for (Map.Entry<String, String> streamAttr : streamAttrs.entrySet()) {
+					streamExt.setAttribute(streamAttr.getKey(), streamAttr.getValue());
+				}
+				SsrcPacketExtension ssrcExt = new SsrcPacketExtension();
+				ssrcExt.setText(stream.getKey());
+				streamExt.setSsrc(ssrcExt);
+				streamsExt.addStream(streamExt);
+			}
 
 			RawUdpTransportPacketExtension rawUdpExt = new RawUdpTransportPacketExtension();
 			CandidatePacketExtension candidateExt = new CandidatePacketExtension();
