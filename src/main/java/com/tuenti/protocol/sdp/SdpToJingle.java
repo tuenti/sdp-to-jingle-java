@@ -111,6 +111,20 @@ public class SdpToJingle {
 					mediaDescription.addAttribute(rtpmapAttr);
 				}
 
+				// "a=crypto:0 AES_CM_128_HMAC_SHA1_32 inline:keNcG3HezSNID7LmfDa9J4lfdUL8W1F7TNJKcbuy"
+				List<EncryptionPacketExtension> encryptionExts = descriptionExt.getChildExtensionsOfType(EncryptionPacketExtension.class);
+				if (encryptionExts.size() > 0) {
+					EncryptionPacketExtension encryptionExt = encryptionExts.get(0);
+					List<CryptoPacketExtension> cryptoExts = encryptionExt.getCryptoList();
+					for (CryptoPacketExtension cryptoExt : cryptoExts) {
+						String value = cryptoExt.getTag()
+								+ " " + cryptoExt.getCryptoSuite()
+								+ " " + cryptoExt.getKeyParams();
+						Attribute cryptoAttr = new Attribute("crypto", value);
+						mediaDescription.addAttribute(cryptoAttr);
+					}
+				}
+
 				// "a=rtcp-mux"
 				List<RtcpMuxExtension> rtcpMuxExts = descriptionExt.getChildExtensionsOfType(RtcpMuxExtension.class);
 				if (!rtcpMuxExts.isEmpty()) {
@@ -183,6 +197,24 @@ public class SdpToJingle {
 				rtpExt.addChildExtension(payloadExt);
 			}
 
+			// <encryption><crypto /><crypto /></encription>
+			Attribute[] cryptoAttrs = mediaDescription.getAttributes("crypto");
+			EncryptionPacketExtension encryptionExt = null;
+			if (cryptoAttrs != null && cryptoAttrs.length > 0) {
+				encryptionExt = new EncryptionPacketExtension();
+				encryptionExt.setRequired(true);
+				rtpExt.addChildExtension(encryptionExt);
+			}
+			for (Attribute attr : cryptoAttrs) {
+				String[] params = attr.getValue().split(" ");
+				CryptoPacketExtension cryptoExt = new CryptoPacketExtension();
+				cryptoExt.setTag(params[0]);
+				cryptoExt.setCryptoSuite(params[1]);
+				cryptoExt.setKeyParams(params[2]);
+				encryptionExt.addCrypto(cryptoExt);
+			}
+
+			// <rtcp-mux />
 			Attribute[] rtcpMuxAttrs = mediaDescription.getAttributes("rtcp-mux");
 			if (rtcpMuxAttrs.length > 0) {
 				RtcpMuxExtension rtpcMuxExt = new RtcpMuxExtension();

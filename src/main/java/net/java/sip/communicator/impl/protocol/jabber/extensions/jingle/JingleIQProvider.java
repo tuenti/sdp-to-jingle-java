@@ -66,6 +66,21 @@ public class JingleIQProvider implements IQProvider
             new DefaultPacketExtensionProvider
                 <RTPHdrExtPacketExtension>(RTPHdrExtPacketExtension.class));
 
+        //<encryption/> provider
+        providerManager.addExtensionProvider(
+                EncryptionPacketExtension.ELEMENT_NAME,
+                RtpDescriptionPacketExtension.NAMESPACE,
+                new DefaultPacketExtensionProvider
+                        <EncryptionPacketExtension>(EncryptionPacketExtension.class));
+
+
+        //<crypto/> provider
+        providerManager.addExtensionProvider(
+                CryptoPacketExtension.ELEMENT_NAME,
+                RtpDescriptionPacketExtension.NAMESPACE,
+                new DefaultPacketExtensionProvider
+                        <CryptoPacketExtension>(CryptoPacketExtension.class));
+        
         //<zrtp-hash/> provider
         providerManager.addExtensionProvider(
             ZrtpHashPacketExtension.ELEMENT_NAME,

@@ -1,11 +1,8 @@
 package com.tuenti.protocol.sdp;
 
-import com.tuenti.protocol.sdp.SdpToJingle;
-import com.tuenti.protocol.sdp.Utils;
 import net.java.sip.communicator.impl.protocol.jabber.extensions.jingle.*;
 import net.sourceforge.jsdp.*;
 import org.junit.Assert;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -170,10 +167,8 @@ public class SdpToJingleTest {
 		prepare();
 		// SDP => Jingle
 		JingleIQ jingle = SdpToJingle.jingleFromSdp(sdp);
-		System.out.println(jingle.toXML());
 		// Jingle => SDP
 		sdp = SdpToJingle.sdpFromJingle(jingle);
-		System.out.println(sdp.toString());
 		jingle = SdpToJingle.jingleFromSdp(sdp);
 
 		Assert.assertTrue(jingle.getSID().equals("123"));
@@ -262,7 +257,6 @@ public class SdpToJingleTest {
 	@Test
 	public void testRtcpMuxPresentInSdp() {
 		prepare(true);
-		System.out.println(sdp.toString());
 		MediaDescription audio = sdp.getMediaDescriptions()[0];
 		Assert.assertTrue(audio.getAttributes("rtcp-mux").length == 1);
 	}
@@ -302,5 +296,37 @@ public class SdpToJingleTest {
 			List<RtcpMuxExtension> rtcpMuxExts = descriptionExt.getChildExtensionsOfType(RtcpMuxExtension.class);
 			Assert.assertTrue(rtcpMuxExts.size() == 0);
 		}
+	}
+
+	@Test
+	public void testCryptoPresentInJingle() {
+		prepare(true);
+		JingleIQ jingle = SdpToJingle.jingleFromSdp(sdp);
+		List<ContentPacketExtension> contents = jingle.getContentList();
+		for (ContentPacketExtension content : contents) {
+			List<RtpDescriptionPacketExtension> descriptionExts = content.getChildExtensionsOfType(RtpDescriptionPacketExtension.class);
+			RtpDescriptionPacketExtension descriptionExt = descriptionExts.get(0);
+			List<EncryptionPacketExtension> encryptionExts = descriptionExt.getChildExtensionsOfType(EncryptionPacketExtension.class);
+			Assert.assertTrue(encryptionExts.size() == 1);
+			EncryptionPacketExtension encryptionExt = encryptionExts.get(0);
+			Assert.assertTrue(encryptionExt.isRequired());
+			List<CryptoPacketExtension> cryptoExts = encryptionExt.getCryptoList();
+			Assert.assertTrue(cryptoExts.size() == 1);
+			CryptoPacketExtension cryptoExt = cryptoExts.get(0);
+			Assert.assertTrue(cryptoExt.getCryptoSuite().equals("AES_CM_128_HMAC_SHA1_32") || cryptoExt.getCryptoSuite().equals("AES_CM_128_HMAC_SHA1_80"));
+			Assert.assertEquals(cryptoExt.getTag(), "0");
+			Assert.assertTrue(cryptoExt.getKeyParams().equals("inline:keNcG3HezSNID7LmfDa9J4lfdUL8W1F7TNJKcbuy")
+					|| cryptoExt.getKeyParams().equals("inline:5ydJsA+FZVpAyqJMT/nW/UW+tcOmDvXJh/pPhNRe"));
+		}
+	}
+
+	@Test
+	public void testCryptoPresentInSdp() {
+		prepare(true);
+		JingleIQ jingle = SdpToJingle.jingleFromSdp(sdp);
+		sdp = SdpToJingle.sdpFromJingle(jingle);
+		String text = sdp.toString();
+		Assert.assertTrue(text.contains("a=crypto:0 AES_CM_128_HMAC_SHA1_32 inline:keNcG3HezSNID7LmfDa9J4lfdUL8W1F7TNJKcbuy"));
+		Assert.assertTrue(text.contains("a=crypto:0 AES_CM_128_HMAC_SHA1_80 inline:5ydJsA+FZVpAyqJMT/nW/UW+tcOmDvXJh/pPhNRe"));
 	}
 }
