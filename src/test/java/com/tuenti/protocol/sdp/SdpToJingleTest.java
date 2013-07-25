@@ -2,6 +2,7 @@ package com.tuenti.protocol.sdp;
 
 import net.java.sip.communicator.impl.protocol.jabber.extensions.jingle.*;
 import net.sourceforge.jsdp.*;
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -13,6 +14,8 @@ import java.util.List;
  * Unit tests for the SdpToJingle class.
  *
  * Copyright (c) Tuenti Technologies. All rights reserved.
+ *
+ * @author Wijnand Warren <wwarren@tuenti.com>
  * @author Manuel Peinado Gallego <mpeinado@tuenti.com>
  */
 @RunWith(JUnit4.class)
@@ -68,12 +71,26 @@ public class SdpToJingleTest {
 			+ "a=ssrc:43633328 cname:hsWuSQJxx7przmb8\r\n"
 			+ "a=ssrc:43633328 mslabel:stream_label\r\n"
 			+ "a=ssrc:43633328 label:video_label\r\n";
+
 	private SessionDescription sdp;
+
+	/**
+	 * Cleans up after the test has been run.
+	 */
+	@After
+	public void tearDown() {
+		sdp = null;
+	}
 
 	public void prepare() {
 		prepare(true);
 	}
 
+	/**
+	 * Prepares the {@link SessionDescription} object to be used in the tests.
+	 *
+	 * @param includeRtcpMuxAttr boolean - Whether or not to include the RTCP MUX attribute.
+	 */
 	public void prepare(boolean includeRtcpMuxAttr) {
 		try {
 			String sdpMessage = SAMPLE_SDP_MESSAGE.replace("{{RTCP-MUX}}", includeRtcpMuxAttr ? "a=rtcp-mux\r\n" : "");
@@ -82,11 +99,15 @@ public class SdpToJingleTest {
 			e.printStackTrace();
 		}
 	}
-	
-	@Test
-	public void testSdpToJingle() {
-		prepare();
-		JingleIQ jingle = SdpToJingle.jingleFromSdp(sdp);
+
+	/**
+	 * Verifies a Jingle IQ.
+	 *
+	 * @param jingle {@link JingleIQ} - The Jingle IQ to check.
+	 */
+	private void verifyJingleIq(JingleIQ jingle, boolean checkCandidatePort) {
+		Assert.assertNotNull(jingle);
+
 		Assert.assertTrue(jingle.getSID().equals("123"));
 		List<ContentPacketExtension> contentList = jingle.getContentList();
 		Assert.assertTrue(contentList.size() == 2);
@@ -115,7 +136,9 @@ public class SdpToJingleTest {
 		Assert.assertTrue(rawUdpExts.size() == 1);
 		Assert.assertTrue(rawUdpExts.get(0).getCandidateList().size() == 1);
 		Assert.assertTrue(rawUdpExts.get(0).getCandidateList().get(0).getIP().equals("172.22.76.221"));
-		Assert.assertTrue(rawUdpExts.get(0).getCandidateList().get(0).getPort() == 36798);
+		if (checkCandidatePort) {
+			Assert.assertTrue(rawUdpExts.get(0).getCandidateList().get(0).getPort() == 36798);
+		}
 		Assert.assertTrue(rawUdpExts.get(0).getCandidateList().get(0).getGeneration() == 0);
 
 		List<IceUdpTransportPacketExtension> iceUdpExts = audio.getChildExtensionsOfType(IceUdpTransportPacketExtension.class);
@@ -147,86 +170,9 @@ public class SdpToJingleTest {
 		Assert.assertTrue(rawUdpExts.size() == 1);
 		Assert.assertTrue(rawUdpExts.get(0).getCandidateList().size() == 1);
 		Assert.assertTrue(rawUdpExts.get(0).getCandidateList().get(0).getIP().equals("172.22.76.221"));
-		Assert.assertTrue(rawUdpExts.get(0).getCandidateList().get(0).getPort() == 39456);
-		Assert.assertTrue(rawUdpExts.get(0).getCandidateList().get(0).getGeneration() == 0);
-
-		iceUdpExts = video.getChildExtensionsOfType(IceUdpTransportPacketExtension.class);
-		iceUdpExts = Utils.filterByClass(iceUdpExts, IceUdpTransportPacketExtension.class);
-		Assert.assertTrue(iceUdpExts.size() == 4);
-		for (int i = 0; i < iceUdpExts.size(); ++i) {
-			Assert.assertTrue(iceUdpExts.get(i).getCandidateList().size() == 1);
+		if (checkCandidatePort) {
+			Assert.assertTrue(rawUdpExts.get(0).getCandidateList().get(0).getPort() == 39456);
 		}
-		verifyCandidateExtension(iceUdpExts.get(1).getCandidateList().get(0), 1, 1, "udp", 1, 0,
-				CandidateType.host, "172.22.76.221", 53441);
-		verifyCandidateExtension(iceUdpExts.get(2).getCandidateList().get(0), 2, 1, "udp", 2, 0,
-				CandidateType.srflx, "172.22.76.221", 46128);
-	}
-
-	@Test
-	public void testJingleToSdp() {
-		prepare();
-		// SDP => Jingle
-		JingleIQ jingle = SdpToJingle.jingleFromSdp(sdp);
-		// Jingle => SDP
-		sdp = SdpToJingle.sdpFromJingle(jingle);
-		jingle = SdpToJingle.jingleFromSdp(sdp);
-
-		Assert.assertTrue(jingle.getSID().equals("123"));
-		List<ContentPacketExtension> contentList = jingle.getContentList();
-		Assert.assertTrue(contentList.size() == 2);
-		for (ContentPacketExtension content : contentList) {
-			Assert.assertTrue(contentList.get(0).getChildExtensionsOfType(RtpDescriptionPacketExtension.class).size() == 1);
-			Assert.assertTrue(content.getCreator() == ContentPacketExtension.CreatorEnum.initiator);
-		}
-
-		ContentPacketExtension audio = contentList.get(0);
-		Assert.assertTrue(audio.getName().equals("audio"));
-		List<RtpDescriptionPacketExtension> packetExts = audio.getChildExtensionsOfType(RtpDescriptionPacketExtension.class);
-		Assert.assertTrue(packetExts.size() == 1);
-		RtpDescriptionPacketExtension packetExt = packetExts.get(0);
-		Assert.assertTrue(packetExt.getMedia().equals("audio"));
-
-		List<PayloadTypePacketExtension> payloadExts = packetExt.getChildExtensionsOfType(PayloadTypePacketExtension.class);
-		Assert.assertTrue(payloadExts.size() == 15);
-		Assert.assertTrue(payloadExts.get(8).getID() == 0);
-		Assert.assertTrue(payloadExts.get(8).getName().equals("PCMU"));
-		Assert.assertTrue(payloadExts.get(8).getClockrate().equals("8000"));
-
-		List<RawUdpTransportPacketExtension> rawUdpExts = audio.getChildExtensionsOfType(RawUdpTransportPacketExtension.class);
-		Assert.assertTrue(rawUdpExts.size() == 1);
-		Assert.assertTrue(rawUdpExts.get(0).getCandidateList().size() == 1);
-		Assert.assertTrue(rawUdpExts.get(0).getCandidateList().get(0).getIP().equals("172.22.76.221"));
-		Assert.assertTrue(rawUdpExts.get(0).getCandidateList().get(0).getGeneration() == 0);
-
-		List<IceUdpTransportPacketExtension> iceUdpExts = audio.getChildExtensionsOfType(IceUdpTransportPacketExtension.class);
-		iceUdpExts = Utils.filterByClass(iceUdpExts, IceUdpTransportPacketExtension.class);
-		Assert.assertTrue(iceUdpExts.size() == 4);
-		for (int i = 0; i < iceUdpExts.size(); ++i) {
-			Assert.assertTrue(iceUdpExts.get(i).getCandidateList().size() == 1);
-		}
-		verifyCandidateExtension(iceUdpExts.get(1).getCandidateList().get(0), 1, 1, "udp", 1, 0,
-				CandidateType.host, "172.22.76.221", 48235);
-		verifyCandidateExtension(iceUdpExts.get(2).getCandidateList().get(0), 2, 1, "udp", 2, 0,
-				CandidateType.srflx, "172.22.76.221", 36798);
-
-		Assert.assertTrue(contentList.get(1).getName().equals("video"));
-		ContentPacketExtension video = contentList.get(1);
-		Assert.assertTrue(video.getName().equals("video"));
-		packetExts = video.getChildExtensionsOfType(RtpDescriptionPacketExtension.class);
-		Assert.assertTrue(packetExts.size() == 1);
-		packetExt = packetExts.get(0);
-		Assert.assertTrue(packetExt.getMedia().equals("video"));
-
-		payloadExts = packetExt.getChildExtensionsOfType(PayloadTypePacketExtension.class);
-		Assert.assertTrue(payloadExts.size() == 3);
-		Assert.assertTrue(payloadExts.get(2).getID() == 102);
-		Assert.assertTrue(payloadExts.get(2).getName().equals("ulpfec"));
-		Assert.assertTrue(payloadExts.get(2).getClockrate().equals("90000"));
-
-		rawUdpExts = video.getChildExtensionsOfType(RawUdpTransportPacketExtension.class);
-		Assert.assertTrue(rawUdpExts.size() == 1);
-		Assert.assertTrue(rawUdpExts.get(0).getCandidateList().size() == 1);
-		Assert.assertTrue(rawUdpExts.get(0).getCandidateList().get(0).getIP().equals("172.22.76.221"));
 		Assert.assertTrue(rawUdpExts.get(0).getCandidateList().get(0).getGeneration() == 0);
 
 		iceUdpExts = video.getChildExtensionsOfType(IceUdpTransportPacketExtension.class);
@@ -255,8 +201,30 @@ public class SdpToJingleTest {
 	}
 
 	@Test
+	public void testSdpToJingle() {
+		prepare();
+		JingleIQ jingle = SdpToJingle.jingleFromSdp(sdp);
+		verifyJingleIq(jingle, true);
+	}
+
+	@Test
+	public void testJingleToSdp() {
+		prepare();
+		// SDP => Jingle
+		JingleIQ jingle = SdpToJingle.jingleFromSdp(sdp);
+		Assert.assertNotNull(jingle);
+
+		// Jingle => SDP
+		sdp = SdpToJingle.sdpFromJingle(jingle);
+		Assert.assertNotNull(sdp);
+
+		jingle = SdpToJingle.jingleFromSdp(sdp);
+		verifyJingleIq(jingle, false);
+	}
+
+	@Test
 	public void testRtcpMuxPresentInSdp() {
-		prepare(true);
+		prepare();
 		MediaDescription audio = sdp.getMediaDescriptions()[0];
 		Assert.assertTrue(audio.getAttributes("rtcp-mux").length == 1);
 	}
@@ -270,7 +238,7 @@ public class SdpToJingleTest {
 
 	@Test
 	public void testRtcpMuxPresentInJingle() {
-		prepare(true);
+		prepare();
 		JingleIQ jingle = SdpToJingle.jingleFromSdp(sdp);
 
 		List<ContentPacketExtension> contents = jingle.getContentList();
@@ -300,7 +268,7 @@ public class SdpToJingleTest {
 
 	@Test
 	public void testCryptoPresentInJingle() {
-		prepare(true);
+		prepare();
 		JingleIQ jingle = SdpToJingle.jingleFromSdp(sdp);
 		List<ContentPacketExtension> contents = jingle.getContentList();
 		for (ContentPacketExtension content : contents) {
@@ -322,9 +290,13 @@ public class SdpToJingleTest {
 
 	@Test
 	public void testCryptoPresentInSdp() {
-		prepare(true);
+		prepare();
 		JingleIQ jingle = SdpToJingle.jingleFromSdp(sdp);
+		Assert.assertNotNull(jingle);
+
 		sdp = SdpToJingle.sdpFromJingle(jingle);
+		Assert.assertNotNull(sdp);
+
 		String text = sdp.toString();
 		Assert.assertTrue(text.contains("a=crypto:0 AES_CM_128_HMAC_SHA1_32 inline:keNcG3HezSNID7LmfDa9J4lfdUL8W1F7TNJKcbuy"));
 		Assert.assertTrue(text.contains("a=crypto:0 AES_CM_128_HMAC_SHA1_80 inline:5ydJsA+FZVpAyqJMT/nW/UW+tcOmDvXJh/pPhNRe"));
@@ -332,7 +304,7 @@ public class SdpToJingleTest {
 
 	@Test
 	public void testStreamsPresentInJingle() {
-		prepare(true);
+		prepare();
 		JingleIQ jingle = SdpToJingle.jingleFromSdp(sdp);
 		List<ContentPacketExtension> contents = jingle.getContentList();
 		ContentPacketExtension audio = contents.get(0);
@@ -355,9 +327,13 @@ public class SdpToJingleTest {
 
 	@Test
 	public void testSsrcPresentInSdp() {
-		prepare(true);
+		prepare();
 		JingleIQ jingle = SdpToJingle.jingleFromSdp(sdp);
+		Assert.assertNotNull(jingle);
+
 		sdp = SdpToJingle.sdpFromJingle(jingle);
+		Assert.assertNotNull(sdp);
+
 		String text = sdp.toString();
 		Assert.assertTrue(text.contains("a=ssrc:2570980487 cname:hsWuSQJxx7przmb8"));
 		Assert.assertTrue(text.contains("a=ssrc:2570980487 mslabel:stream_label"));

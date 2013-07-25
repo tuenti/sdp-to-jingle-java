@@ -3,6 +3,9 @@ package com.tuenti.protocol.sdp;
 import net.java.sip.communicator.impl.protocol.jabber.extensions.jingle.*;
 import net.sourceforge.jsdp.*;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -10,8 +13,10 @@ import java.util.Map;
 /**
  * Converts a PeerConnection SDP Message to Jingle and vice-versa.
  *
- * @author Manuel Peinado Gallego <mpeinado@tuenti.com>
  * Copyright (c) Tuenti Technologies. All rights reserved.
+ *
+ * @author Wijnand Warren <wwarren@tuenti.com>
+ * @author Manuel Peinado Gallego <mpeinado@tuenti.com>
  */
 public class SdpToJingle {
 
@@ -28,7 +33,13 @@ public class SdpToJingle {
 		Version version = new Version(0);
 
  		try {
-			Origin origin = new Origin();
+			long ntpTime = Time.getNTP(new Date());
+			/**
+			 * Passing in a fake name, all other params are the same as the {@link Origin#Origin}. Name is not that
+			 * important as it doesn't exist in the Jingle IQ.
+			 */
+			Origin origin = new Origin("ProfessorFarnsworth", ntpTime, ntpTime, InetAddress.getLocalHost().getHostName());
+
 			origin.setSessionID(Long.parseLong(jingle.getSID()));
 			SessionName sessionName = new SessionName();
 			TimeDescription timeDescription = new TimeDescription();
@@ -153,7 +164,10 @@ public class SdpToJingle {
 			}
 			return result;
 		} catch (SDPException e) {
-			e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+			e.printStackTrace();
+			return null;
+		} catch (UnknownHostException e) {
+			e.printStackTrace();
 			return null;
 		}
 	}
