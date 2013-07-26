@@ -30,9 +30,8 @@ public class SdpToJingle {
 	//  * Generate the "crypto" line from the <encription><crypto> element.
 	//  * Generate the "ssrc" lines from the <streams> element.
 	public static SessionDescription sdpFromJingle(JingleIQ jingle) {
-		Version version = new Version(0);
-
- 		try {
+		try {
+			Version version = Version.parse("v=0");
 			long ntpTime = Time.getNTP(new Date());
 			/**
 			 * Passing in a fake name, all other params are the same as the {@link Origin#Origin}. Name is not that
