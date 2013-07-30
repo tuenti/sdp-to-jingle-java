@@ -8,6 +8,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -71,6 +72,18 @@ public class SdpToJingleTest {
 			+ "a=ssrc:43633328 cname:hsWuSQJxx7przmb8\r\n"
 			+ "a=ssrc:43633328 mslabel:stream_label\r\n"
 			+ "a=ssrc:43633328 label:video_label\r\n";
+
+	private static final String SAMPLE_ICE_CANDIDATES_SDP_STUB =
+			"a=candidate:1 2 udp 1 172.22.76.221 47216 typ host generation 0\r\n"
+			+ "a=candidate:1 1 udp 1 172.22.76.221 48235 typ host generation 0\r\n"
+			+ "a=candidate:1 2 udp 2 172.22.76.221 36798 typ srflx generation 0\r\n"
+			+ "a=candidate:1 1 udp 2 172.22.76.221 50102 typ srflx generation 0\r\n"
+			+ "a=candidate:1 2 udp 1 172.22.76.221 40550 typ host generation 0\r\n"
+			+ "a=candidate:1 1 udp 1 172.22.76.221 53441 typ host generation 0\r\n"
+			+ "a=candidate:1 2 udp 2 172.22.76.221 46128 typ srflx generation 0\r\n"
+			+ "a=candidate:1 1 udp 2 172.22.76.221 39456 typ srflx generation 0\r\n";
+	private static final String MEDIA_NAME = "audio";
+	private static final String SAMPLE_SID = "123456";
 
 	private SessionDescription sdp;
 
@@ -143,13 +156,13 @@ public class SdpToJingleTest {
 
 		List<IceUdpTransportPacketExtension> iceUdpExts = audio.getChildExtensionsOfType(IceUdpTransportPacketExtension.class);
 		iceUdpExts = Utils.filterByClass(iceUdpExts, IceUdpTransportPacketExtension.class);
-		Assert.assertTrue(iceUdpExts.size() == 4);
+		Assert.assertEquals(1, iceUdpExts.size());
 		for (int i = 0; i < iceUdpExts.size(); ++i) {
-			Assert.assertTrue(iceUdpExts.get(i).getCandidateList().size() == 1);
+			Assert.assertEquals(4, iceUdpExts.get(i).getCandidateList().size());
 		}
-		verifyCandidateExtension(iceUdpExts.get(1).getCandidateList().get(0), 1, 1, "udp", 1, 0,
+		verifyCandidateExtension(iceUdpExts.get(0).getCandidateList().get(1), 1, 1, "udp", 1, 0,
 				CandidateType.host, "172.22.76.221", 48235);
-		verifyCandidateExtension(iceUdpExts.get(2).getCandidateList().get(0), 2, 1, "udp", 2, 0,
+		verifyCandidateExtension(iceUdpExts.get(0).getCandidateList().get(2), 2, 1, "udp", 2, 0,
 				CandidateType.srflx, "172.22.76.221", 36798);
 
 		Assert.assertTrue(contentList.get(1).getName().equals("video"));
@@ -177,13 +190,13 @@ public class SdpToJingleTest {
 
 		iceUdpExts = video.getChildExtensionsOfType(IceUdpTransportPacketExtension.class);
 		iceUdpExts = Utils.filterByClass(iceUdpExts, IceUdpTransportPacketExtension.class);
-		Assert.assertTrue(iceUdpExts.size() == 4);
+		Assert.assertEquals(1, iceUdpExts.size());
 		for (int i = 0; i < iceUdpExts.size(); ++i) {
-			Assert.assertTrue(iceUdpExts.get(i).getCandidateList().size() == 1);
+			Assert.assertEquals(4, iceUdpExts.get(i).getCandidateList().size());
 		}
-		verifyCandidateExtension(iceUdpExts.get(1).getCandidateList().get(0), 1, 1, "udp", 1, 0,
+		verifyCandidateExtension(iceUdpExts.get(0).getCandidateList().get(1), 1, 1, "udp", 1, 0,
 				CandidateType.host, "172.22.76.221", 53441);
-		verifyCandidateExtension(iceUdpExts.get(2).getCandidateList().get(0), 2, 1, "udp", 2, 0,
+		verifyCandidateExtension(iceUdpExts.get(0).getCandidateList().get(2), 2, 1, "udp", 2, 0,
 				CandidateType.srflx, "172.22.76.221", 46128);
 	}
 
@@ -342,5 +355,30 @@ public class SdpToJingleTest {
 		Assert.assertTrue(text.contains("a=ssrc:43633328 cname:hsWuSQJxx7przmb8"));
 		Assert.assertTrue(text.contains("a=ssrc:43633328 mslabel:stream_label"));
 		Assert.assertTrue(text.contains("a=ssrc:43633328 label:video_label"));
+	}
+
+	@Test
+	public void testJingeIceCandidatesFromSdpStub() {
+		List<String> iceCandidates = Arrays.asList(SAMPLE_ICE_CANDIDATES_SDP_STUB.split("\r\n"));
+		JingleIQ iq = SdpToJingle.transportInfoFromSdpStub(iceCandidates, SAMPLE_SID,
+				MEDIA_NAME, ContentPacketExtension.CreatorEnum.initiator);
+
+		Assert.assertNotNull(iq);
+
+		ContentPacketExtension ice = iq.getContentForType(IceUdpTransportPacketExtension.class);
+		List<IceUdpTransportPacketExtension> iceUdpExts = ice.getChildExtensionsOfType(IceUdpTransportPacketExtension
+				.class);
+		iceUdpExts = Utils.filterByClass(iceUdpExts, IceUdpTransportPacketExtension.class);
+
+		Assert.assertEquals(1, iceUdpExts.size());
+
+		for (int i = 0; i < iceUdpExts.size(); ++i) {
+			Assert.assertEquals(8, iceUdpExts.get(i).getCandidateList().size());
+		}
+
+		verifyCandidateExtension(iceUdpExts.get(0).getCandidateList().get(1), 1, 1, "udp", 1, 0, CandidateType.host,
+				"172.22.76.221", 48235);
+		verifyCandidateExtension(iceUdpExts.get(0).getCandidateList().get(2), 2, 1, "udp", 2, 0, CandidateType.srflx,
+				"172.22.76.221", 36798);
 	}
 }

@@ -21,6 +21,91 @@ import java.util.Map;
 public class SdpToJingle {
 
 	/**
+	 * Creates a brand new {@link SessionDescription} object.
+	 *
+	 * @param sid The session ID to use.
+	 * @return A new {@link SessionDescription} object.
+	 *
+	 * @throws SDPException When a new {@link Origin} can't be created.
+	 * @throws UnknownHostException When local host can't be resolved to an address.
+	 */
+	private static SessionDescription getNewSessionDescription(final String sid) throws SDPException, UnknownHostException {
+		Version version = Version.parse("v=0");
+		long ntpTime = Time.getNTP(new Date());
+		/**
+		 * Passing in a fake name, all other params are the same as the {@link Origin#Origin}. Name is not that
+		 * important as it doesn't exist in the Jingle IQ.
+		 */
+		Origin origin = new Origin("ProfessorFarnsworth", ntpTime, ntpTime, InetAddress.getLocalHost().getHostName());
+
+		origin.setSessionID(Long.parseLong(sid));
+		SessionName sessionName = new SessionName();
+		TimeDescription timeDescription = new TimeDescription();
+
+		return new SessionDescription(version, origin, sessionName, timeDescription);
+	}
+
+	/**
+	 * Creates a new {@link IceUdpTransportPacketExtension} based on the passed in {@link Attribute}[].
+	 *
+	 * @param candidateAttrs {@link Attribute}[] - List of candidates.
+	 * @return A new {@link IceUdpTransportPacketExtension}.
+	 */
+	private static IceUdpTransportPacketExtension getIceUdpTransportPacketExtension(final Attribute[] candidateAttrs) {
+		CandidatePacketExtension candidateExtension = null;
+		IceUdpTransportPacketExtension iceUdpExtension = new IceUdpTransportPacketExtension();
+
+		for (Attribute attr : candidateAttrs) {
+			String[] params = attr.getValue().split("[ ]");
+			candidateExtension = new CandidatePacketExtension();
+			candidateExtension.setFoundation(Integer.parseInt(params[0]));
+			candidateExtension.setComponent(Integer.parseInt(params[1]));
+			candidateExtension.setProtocol(params[2]);
+			candidateExtension.setPriority(Long.parseLong(params[3]));
+			candidateExtension.setIP(params[4]);
+			candidateExtension.setPort(Integer.parseInt(params[5]));
+			candidateExtension.setType(CandidateType.valueOf(params[7]));
+			candidateExtension.setGeneration(Integer.parseInt(params[9]));
+			iceUdpExtension.addCandidate(candidateExtension);
+		}
+
+		return iceUdpExtension;
+	}
+
+	/**
+	 * Creates a Jingle "transport-info" IQ based on the passed in {@link SessionDescription}.
+	 *
+	 * @param sessionDescription {@link SessionDescription} - The {@link SessionDescription} to convert.
+	 * @param mediaName String - The "name" to use in the "content" tag.
+	 * @param creator {@link ContentPacketExtension.CreatorEnum} - The type of {@link ContentPacketExtension.CreatorEnum} for this IQ.
+	 * @return {@link JingleIQ} - A new {@link JingleIQ} containing all the transport candidates.
+	 */
+	private static JingleIQ createJingleTransportInfo(final SessionDescription sessionDescription,
+			final String mediaName, final ContentPacketExtension.CreatorEnum creator) {
+
+		JingleIQ result = new JingleIQ();
+
+		ContentPacketExtension content = new ContentPacketExtension();
+		content.setName(mediaName);
+		content.setCreator(creator);
+
+		try {
+			result.setAction(JingleAction.parseString(JingleAction.TRANSPORT_INFO.toString()));
+			Attribute[] candidateAttributes = sessionDescription.getAttributes("candidate");
+			// TODO: What about TCP?
+			IceUdpTransportPacketExtension iceUdpExtension = getIceUdpTransportPacketExtension(candidateAttributes);
+
+			content.addChildExtension(iceUdpExtension);
+			result.addContent(content);
+		} catch (IllegalArgumentException e) {
+			e.printStackTrace();
+			result = null;
+		}
+
+		return result;
+	}
+
+	/**
 	 * Creates an SDP object from a Jingle Stanza.
 	 *
 	 * @param jingle JingleIQ - The Jingle stanza to convert.
@@ -31,20 +116,7 @@ public class SdpToJingle {
 	//  * Generate the "ssrc" lines from the <streams> element.
 	public static SessionDescription sdpFromJingle(JingleIQ jingle) {
 		try {
-			Version version = Version.parse("v=0");
-			long ntpTime = Time.getNTP(new Date());
-			/**
-			 * Passing in a fake name, all other params are the same as the {@link Origin#Origin}. Name is not that
-			 * important as it doesn't exist in the Jingle IQ.
-			 */
-			Origin origin = new Origin("ProfessorFarnsworth", ntpTime, ntpTime, InetAddress.getLocalHost().getHostName());
-
-			origin.setSessionID(Long.parseLong(jingle.getSID()));
-			SessionName sessionName = new SessionName();
-			TimeDescription timeDescription = new TimeDescription();
-
-			SessionDescription result = new SessionDescription(version, origin, sessionName, timeDescription);
-
+			SessionDescription result = getNewSessionDescription(jingle.getSID());
 			List<ContentPacketExtension> contents = jingle.getContentList();
 
 			// "a=group:BUNDLE audio video"
@@ -91,17 +163,19 @@ public class SdpToJingle {
 				iceUdpExts = Utils.filterByClass(iceUdpExts, IceUdpTransportPacketExtension.class);
 				for (IceUdpTransportPacketExtension iceUdpExt : iceUdpExts) {
 					// "a=candidate:1 2 udp 1 172.22.76.221 47216 typ host generation 0"
-					candidateExt = iceUdpExt.getChildExtensionsOfType(CandidatePacketExtension.class).get(0);
-					String value = candidateExt.getFoundation()
-							+ " " + candidateExt.getComponent()
-							+ " " + candidateExt.getProtocol()
-							+ " " + candidateExt.getPriority()
-							+ " " + candidateExt.getIP()
-							+ " " + candidateExt.getPort()
-							+ " typ " + candidateExt.getType()
-							+ " generation " + candidateExt.getGeneration();
-					Attribute iceUdpAttr = new Attribute("candidate", value);
-					mediaDescription.addAttribute(iceUdpAttr);
+					// There can (or better should) be multiple candidate tags inside one transport tag.
+					for (CandidatePacketExtension candidateExtension : iceUdpExt.getChildExtensionsOfType(CandidatePacketExtension.class)) {
+						String value = candidateExtension.getFoundation()
+								+ " " + candidateExtension.getComponent()
+								+ " " + candidateExtension.getProtocol()
+								+ " " + candidateExtension.getPriority()
+								+ " " + candidateExtension.getIP()
+								+ " " + candidateExtension.getPort()
+								+ " typ " + candidateExtension.getType()
+								+ " generation " + candidateExtension.getGeneration();
+						Attribute iceUdpAttr = new Attribute("candidate", value);
+						mediaDescription.addAttribute(iceUdpAttr);
+					}
 				}
 
 				// "a=sendrecv"
@@ -283,24 +357,54 @@ public class SdpToJingle {
 			rawUdpExt.addCandidate(candidateExt);
 			content.addChildExtension(rawUdpExt);
 
-			Attribute[] candidateAttrs = mediaDescription.getAttributes("candidate");
-			for (Attribute attr : candidateAttrs) {
-				IceUdpTransportPacketExtension iceUdpExt = new IceUdpTransportPacketExtension();
-				String[] params = attr.getValue().split("[ ]");
-				candidateExt = new CandidatePacketExtension();
-				candidateExt.setFoundation(Integer.parseInt(params[0]));
-				candidateExt.setComponent(Integer.parseInt(params[1]));
-				candidateExt.setProtocol(params[2]);
-				candidateExt.setPriority(Long.parseLong(params[3]));
-				candidateExt.setIP(params[4]);
-				candidateExt.setPort(Integer.parseInt(params[5]));
-				candidateExt.setType(CandidateType.valueOf(params[7]));
-				candidateExt.setGeneration(Integer.parseInt(params[9]));
-				iceUdpExt.addCandidate(candidateExt);
-				content.addChildExtension(iceUdpExt);
-			}
+			// TODO: What about TCP?
+			Attribute[] candidateAttributes = mediaDescription.getAttributes("candidate");
+			IceUdpTransportPacketExtension iceUdpExt = getIceUdpTransportPacketExtension(candidateAttributes);
+			content.addChildExtension(iceUdpExt);
+
 			result.addContent(content);
 		}
+		return result;
+	}
+
+	/**
+	 * Creates a Jingle "transport-info" IQ based on a passed in SDP stub of ICE candidates.
+	 * @see SdpToJingleTest#testJingeIceCandidatesFromSdpStub() for details.
+	 *
+	 * @param candidateList List<String> - List of SDP ICE candidates.
+	 * @param sid String - The Jingle session ID.
+	 * @param mediaName String - The "name" to use in the "content" tag.
+	 * @param creator {@link ContentPacketExtension.CreatorEnum} - The type of {@link ContentPacketExtension.CreatorEnum} for this IQ.
+	 * @return {@link JingleIQ} - A new {@link JingleIQ} containing all the transport candidates.
+	 */
+	public static JingleIQ transportInfoFromSdpStub(final List<String> candidateList, final String sid,
+			final String mediaName, final ContentPacketExtension.CreatorEnum creator) {
+
+		SessionDescription sessionDescription = null;
+		JingleIQ result = null;
+		String candidatePrefix = "candidate:";
+
+		// First, create a session description object.
+		try {
+			sessionDescription = getNewSessionDescription(sid);
+
+			// Add candidates.
+			for (String candidate : candidateList) {
+				String[] keyValue = candidate.split(candidatePrefix);
+				Attribute field = new Attribute("candidate", keyValue[1]);
+				sessionDescription.addAttribute(field);
+			}
+		} catch (SDPException e) {
+			e.printStackTrace();
+		} catch (UnknownHostException e) {
+			e.printStackTrace();
+		}
+
+		// Convert SDP to Jingle.
+		if (sessionDescription != null) {
+			result = createJingleTransportInfo(sessionDescription, mediaName, creator);
+		}
+
 		return result;
 	}
 }
