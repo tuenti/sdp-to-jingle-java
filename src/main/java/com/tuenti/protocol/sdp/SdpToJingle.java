@@ -58,14 +58,23 @@ public class SdpToJingle {
 		for (Attribute attr : candidateAttrs) {
 			String[] params = attr.getValue().split("[ ]");
 			candidateExtension = new CandidatePacketExtension();
-			candidateExtension.setFoundation(Integer.parseInt(params[0]));
+			candidateExtension.setFoundation(params[0]);
 			candidateExtension.setComponent(Integer.parseInt(params[1]));
 			candidateExtension.setProtocol(params[2]);
 			candidateExtension.setPriority(Long.parseLong(params[3]));
 			candidateExtension.setIP(params[4]);
 			candidateExtension.setPort(Integer.parseInt(params[5]));
-			candidateExtension.setType(CandidateType.valueOf(params[7]));
-			candidateExtension.setGeneration(Integer.parseInt(params[9]));
+
+			CandidateType type = CandidateType.valueOf(params[7]);
+			candidateExtension.setType(type);
+			if (type == CandidateType.host) {
+				candidateExtension.setGeneration(Integer.parseInt(params[9]));
+			} else {
+				candidateExtension.setRelAddr(params[9]);
+				candidateExtension.setRelPort(Integer.parseInt(params[11]));
+				candidateExtension.setGeneration(Integer.parseInt(params[13]));
+			}
+
 			iceUdpExtension.addCandidate(candidateExtension);
 		}
 
@@ -84,6 +93,8 @@ public class SdpToJingle {
 			final String mediaName, final ContentPacketExtension.CreatorEnum creator) {
 
 		JingleIQ result = new JingleIQ();
+		Origin origin = sessionDescription.getOrigin();
+		result.setSID(Long.toString(origin.getSessionID()));
 
 		ContentPacketExtension content = new ContentPacketExtension();
 		content.setName(mediaName);
@@ -171,8 +182,16 @@ public class SdpToJingle {
 								+ " " + candidateExtension.getPriority()
 								+ " " + candidateExtension.getIP()
 								+ " " + candidateExtension.getPort()
-								+ " typ " + candidateExtension.getType()
-								+ " generation " + candidateExtension.getGeneration();
+								+ " typ " + candidateExtension.getType();
+
+						if (candidateExtension.getType() == CandidateType.host) {
+							value += " generation " + candidateExtension.getGeneration();
+						} else {
+							value += " raddr " + candidateExtension.getRelAddr()
+									+ " rport " + candidateExtension.getRelPort()
+									+ " generation " + candidateExtension.getGeneration();
+						}
+
 						Attribute iceUdpAttr = new Attribute("candidate", value);
 						mediaDescription.addAttribute(iceUdpAttr);
 					}
@@ -391,7 +410,7 @@ public class SdpToJingle {
 			// Add candidates.
 			for (String candidate : candidateList) {
 				String[] keyValue = candidate.split(candidatePrefix);
-				Attribute field = new Attribute("candidate", keyValue[1]);
+				Attribute field = new Attribute("candidate", keyValue[1].trim());
 				sessionDescription.addAttribute(field);
 			}
 		} catch (SDPException e) {
