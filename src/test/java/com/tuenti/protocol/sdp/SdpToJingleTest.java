@@ -2,6 +2,7 @@ package com.tuenti.protocol.sdp;
 
 import net.java.sip.communicator.impl.protocol.jabber.extensions.jingle.*;
 import net.sourceforge.jsdp.*;
+import org.jivesoftware.smack.packet.IQ;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
@@ -122,6 +123,8 @@ public class SdpToJingleTest {
 		Assert.assertNotNull(jingle);
 
 		Assert.assertTrue(jingle.getSID().equals("123"));
+		Assert.assertEquals(IQ.Type.SET, jingle.getType());
+
 		List<ContentPacketExtension> contentList = jingle.getContentList();
 		Assert.assertTrue(contentList.size() == 2);
 		for (ContentPacketExtension content : contentList) {
@@ -361,18 +364,17 @@ public class SdpToJingleTest {
 	@Test
 	public void testJingeIceCandidatesFromSdpStub() {
 		List<String> iceCandidates = Arrays.asList(SAMPLE_ICE_CANDIDATES_SDP_STUB.split("\r\n"));
-		ContentPacketExtension.CreatorEnum creator = ContentPacketExtension.CreatorEnum.initiator;
-		JingleIQ iq = SdpToJingle.transportInfoFromSdpStub(iceCandidates, SAMPLE_SID, MEDIA_NAME, creator);
+		JingleIQ iq = SdpToJingle.transportInfoFromSdpStub(iceCandidates, SAMPLE_SID, MEDIA_NAME);
 
 		Assert.assertNotNull(iq);
 		Assert.assertEquals(SAMPLE_SID, iq.getSID());
+		Assert.assertEquals(IQ.Type.SET, iq.getType());
 
 		List<ContentPacketExtension> contentList = iq.getContentList();
 		Assert.assertEquals(1, contentList.size());
 
 		ContentPacketExtension content = contentList.get(0);
 		Assert.assertEquals(MEDIA_NAME, content.getName());
-		Assert.assertEquals(creator, content.getCreator());
 
 		ContentPacketExtension ice = iq.getContentForType(IceUdpTransportPacketExtension.class);
 		List<IceUdpTransportPacketExtension> iceUdpExts = ice.getChildExtensionsOfType(IceUdpTransportPacketExtension

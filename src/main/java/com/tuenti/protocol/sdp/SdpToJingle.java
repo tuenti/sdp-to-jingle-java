@@ -2,6 +2,7 @@ package com.tuenti.protocol.sdp;
 
 import net.java.sip.communicator.impl.protocol.jabber.extensions.jingle.*;
 import net.sourceforge.jsdp.*;
+import org.jivesoftware.smack.packet.IQ;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -86,19 +87,18 @@ public class SdpToJingle {
 	 *
 	 * @param sessionDescription {@link SessionDescription} - The {@link SessionDescription} to convert.
 	 * @param mediaName String - The "name" to use in the "content" tag.
-	 * @param creator {@link ContentPacketExtension.CreatorEnum} - The type of {@link ContentPacketExtension.CreatorEnum} for this IQ.
 	 * @return {@link JingleIQ} - A new {@link JingleIQ} containing all the transport candidates.
 	 */
 	private static JingleIQ createJingleTransportInfo(final SessionDescription sessionDescription,
-			final String mediaName, final ContentPacketExtension.CreatorEnum creator) {
+			final String mediaName) {
 
 		JingleIQ result = new JingleIQ();
+		result.setType(IQ.Type.SET);
 		Origin origin = sessionDescription.getOrigin();
 		result.setSID(Long.toString(origin.getSessionID()));
 
 		ContentPacketExtension content = new ContentPacketExtension();
 		content.setName(mediaName);
-		content.setCreator(creator);
 
 		try {
 			result.setAction(JingleAction.parseString(JingleAction.TRANSPORT_INFO.toString()));
@@ -275,6 +275,7 @@ public class SdpToJingle {
 	//  * Generate the <streams><stream> elements from the "ssrc" lines of SDP.
 	public static JingleIQ jingleFromSdp(SessionDescription sdp) {
 		JingleIQ result = new JingleIQ();
+		result.setType(IQ.Type.SET);
 		
 		Origin origin = sdp.getOrigin();
 		result.setSID(Long.toString(origin.getSessionID()));
@@ -393,11 +394,10 @@ public class SdpToJingle {
 	 * @param candidateList List<String> - List of SDP ICE candidates.
 	 * @param sid String - The Jingle session ID.
 	 * @param mediaName String - The "name" to use in the "content" tag.
-	 * @param creator {@link ContentPacketExtension.CreatorEnum} - The type of {@link ContentPacketExtension.CreatorEnum} for this IQ.
 	 * @return {@link JingleIQ} - A new {@link JingleIQ} containing all the transport candidates.
 	 */
 	public static JingleIQ transportInfoFromSdpStub(final List<String> candidateList, final String sid,
-			final String mediaName, final ContentPacketExtension.CreatorEnum creator) {
+			final String mediaName) {
 
 		SessionDescription sessionDescription = null;
 		JingleIQ result = null;
@@ -421,7 +421,7 @@ public class SdpToJingle {
 
 		// Convert SDP to Jingle.
 		if (sessionDescription != null) {
-			result = createJingleTransportInfo(sessionDescription, mediaName, creator);
+			result = createJingleTransportInfo(sessionDescription, mediaName);
 		}
 
 		return result;
