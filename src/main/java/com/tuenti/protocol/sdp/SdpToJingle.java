@@ -241,14 +241,16 @@ public class SdpToJingle {
 				// "a=ssrc:2570980487 label:audio_label"
 				List<StreamsPacketExtension> streamsExts = descriptionExt.getChildExtensionsOfType(StreamsPacketExtension.class);
 				if (!streamsExts.isEmpty()) {
-					List<StreamPacketExtension> streamExts = streamsExts.get(0).getStreamList();
-					StreamPacketExtension streamExt = streamExts.get(0);
-					List<String> attrNames = streamExt.getAttributeNames();
-					SsrcPacketExtension ssrcExt = streamExt.getSsrc();
-					for (String attrName : attrNames) {
-						String value = ssrcExt.getText() + " " + attrName + ":" + streamExt.getAttributeAsString(attrName);
-						attr = new Attribute("ssrc", value);
-						mediaDescription.addAttribute(attr);
+					List<StreamPacketExtension> streamExts = streamsExts.get(0).getChildExtensionsOfType(StreamPacketExtension.class);
+					if (!streamExts.isEmpty()) {
+						StreamPacketExtension streamExt = streamExts.get(0);
+						List<String> attrNames = streamExt.getAttributeNames();
+						SsrcPacketExtension ssrcExt = streamExt.getSsrc();
+						for (String attrName : attrNames) {
+							String value = ssrcExt.getText() + " " + attrName + ":" + streamExt.getAttributeAsString(attrName);
+							attr = new Attribute("ssrc", value);
+							mediaDescription.addAttribute(attr);
+						}
 					}
 				}
 
@@ -315,7 +317,7 @@ public class SdpToJingle {
 				rtpExt.addChildExtension(payloadExt);
 			}
 
-			// <encryption><crypto /><crypto /></encription>
+			// <encryption><crypto /><crypto /></encryption>
 			Attribute[] cryptoAttrs = mediaDescription.getAttributes("crypto");
 			EncryptionPacketExtension encryptionExt = null;
 			if (cryptoAttrs != null && cryptoAttrs.length > 0) {
@@ -329,7 +331,7 @@ public class SdpToJingle {
 				cryptoExt.setTag(params[0]);
 				cryptoExt.setCryptoSuite(params[1]);
 				cryptoExt.setKeyParams(params[2]);
-				encryptionExt.addCrypto(cryptoExt);
+				encryptionExt.addChildExtension(cryptoExt);
 			}
 
 			// <rtcp-mux />
@@ -365,8 +367,8 @@ public class SdpToJingle {
 				}
 				SsrcPacketExtension ssrcExt = new SsrcPacketExtension();
 				ssrcExt.setText(stream.getKey());
-				streamExt.setSsrc(ssrcExt);
-				streamsExt.addStream(streamExt);
+				streamExt.addChildExtension(ssrcExt);
+				streamsExt.addChildExtension(streamExt);
 			}
 
 			RawUdpTransportPacketExtension rawUdpExt = new RawUdpTransportPacketExtension();
@@ -374,7 +376,7 @@ public class SdpToJingle {
 			candidateExt.setIP(connection.getAddress());
 			candidateExt.setPort(media.getPort());
 			candidateExt.setGeneration(0);
-			rawUdpExt.addCandidate(candidateExt);
+			rawUdpExt.addChildExtension(candidateExt);
 			content.addChildExtension(rawUdpExt);
 
 			// TODO: What about TCP?

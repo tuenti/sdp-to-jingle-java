@@ -288,6 +288,10 @@ public class SdpToJingleTest {
 		prepare();
 		JingleIQ jingle = SdpToJingle.jingleFromSdp(sdp);
 		List<ContentPacketExtension> contents = jingle.getContentList();
+
+		Assert.assertNotNull(contents);
+		Assert.assertFalse(contents.isEmpty());
+
 		for (ContentPacketExtension content : contents) {
 			List<RtpDescriptionPacketExtension> descriptionExts = content.getChildExtensionsOfType(RtpDescriptionPacketExtension.class);
 			RtpDescriptionPacketExtension descriptionExt = descriptionExts.get(0);
@@ -295,7 +299,7 @@ public class SdpToJingleTest {
 			Assert.assertTrue(encryptionExts.size() == 1);
 			EncryptionPacketExtension encryptionExt = encryptionExts.get(0);
 			Assert.assertTrue(encryptionExt.isRequired());
-			List<CryptoPacketExtension> cryptoExts = encryptionExt.getCryptoList();
+			List<CryptoPacketExtension> cryptoExts = encryptionExt.getChildExtensionsOfType(CryptoPacketExtension.class);
 			Assert.assertTrue(cryptoExts.size() == 1);
 			CryptoPacketExtension cryptoExt = cryptoExts.get(0);
 			Assert.assertTrue(cryptoExt.getCryptoSuite().equals("AES_CM_128_HMAC_SHA1_32") || cryptoExt.getCryptoSuite().equals("AES_CM_128_HMAC_SHA1_80"));
@@ -331,8 +335,8 @@ public class SdpToJingleTest {
 		List<StreamsPacketExtension> streamsExts = descriptionExt.getChildExtensionsOfType(StreamsPacketExtension.class);
 		Assert.assertTrue(streamsExts.size() == 1);
 		StreamsPacketExtension streamsExt = streamsExts.get(0);
-		List<StreamPacketExtension> streamExts = streamsExt.getStreamList();
-		Assert.assertTrue(streamExts.size() == 1);
+		List<StreamPacketExtension> streamExts = streamsExt.getChildExtensionsOfType(StreamPacketExtension.class);
+		Assert.assertEquals(1, streamExts.size());
 		StreamPacketExtension streamExt = streamExts.get(0);
 		Assert.assertTrue(streamExt.getAttributeNames().size() == 3);
 		Assert.assertEquals(streamExt.getAttribute("cname"), "hsWuSQJxx7przmb8");
