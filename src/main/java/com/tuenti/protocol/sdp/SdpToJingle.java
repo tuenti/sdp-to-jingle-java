@@ -176,22 +176,7 @@ public class SdpToJingle {
 					// "a=candidate:1 2 udp 1 172.22.76.221 47216 typ host generation 0"
 					// There can (or better should) be multiple candidate tags inside one transport tag.
 					for (CandidatePacketExtension candidateExtension : iceUdpExt.getChildExtensionsOfType(CandidatePacketExtension.class)) {
-						String value = candidateExtension.getFoundation()
-								+ " " + candidateExtension.getComponent()
-								+ " " + candidateExtension.getProtocol()
-								+ " " + candidateExtension.getPriority()
-								+ " " + candidateExtension.getIP()
-								+ " " + candidateExtension.getPort()
-								+ " typ " + candidateExtension.getType();
-
-						if (candidateExtension.getType() == CandidateType.host) {
-							value += " generation " + candidateExtension.getGeneration();
-						} else {
-							value += " raddr " + candidateExtension.getRelAddr()
-									+ " rport " + candidateExtension.getRelPort()
-									+ " generation " + candidateExtension.getGeneration();
-						}
-
+						String value = iceCandidateLineFromJingle(candidateExtension, true);
 						Attribute iceUdpAttr = new Attribute("candidate", value);
 						mediaDescription.addAttribute(iceUdpAttr);
 					}
@@ -427,5 +412,46 @@ public class SdpToJingle {
 		}
 
 		return result;
+	}
+
+	/**
+	 * @see #iceCandidateLineFromJingle(CandidatePacketExtension, boolean)
+	 */
+	public static String iceCandidateLineFromJingle(final CandidatePacketExtension iceCandidate) {
+		return iceCandidateLineFromJingle(iceCandidate, false);
+	}
+
+	/**
+	 * Constructs an SDP ICE candidate line based on a Jingle {@link CandidatePacketExtension} object.
+	 *
+	 * @param iceCandidate {@link CandidatePacketExtension} - The Jingle ICE candidate object to use.
+	 * @param valueOnly boolean - Whether or not only the value part of the SDP will need to be generated.
+	 *							If so, the prefix "a=candidate:" and the suffix "\r\n" will be omitted.
+	 * @return String - ICE candidate SDP line.
+	 * @see http://tools.ietf.org/html/rfc5245#page-73
+	 */
+	public static String iceCandidateLineFromJingle(final CandidatePacketExtension iceCandidate, final boolean valueOnly) {
+		// "(a=candidate:)1 2 udp 2 172.22.76.221 36798 typ srflx raddr 10.0.34.44 rport 48296 generation 0(\r\n)"
+		StringBuilder builder = new StringBuilder();
+		if (!valueOnly) {
+			builder.append("a=candidate:");
+		}
+		builder.append(iceCandidate.getFoundation() + " ");
+		builder.append(iceCandidate.getComponent() + " ");
+		builder.append(iceCandidate.getProtocol() + " ");
+		builder.append(iceCandidate.getPriority() + " ");
+		builder.append(iceCandidate.getIP() + " ");
+		builder.append(iceCandidate.getPort() + " typ ");
+		builder.append(iceCandidate.getType() + " ");
+		if (iceCandidate.getType() != CandidateType.host) {
+			builder.append("raddr " + iceCandidate.getRelAddr() + " ");
+			builder.append("rport " + iceCandidate.getRelPort() + " ");
+		}
+		builder.append("generation " + iceCandidate.getGeneration());
+		if (!valueOnly) {
+			builder.append("\r\n");
+		}
+
+		return builder.toString();
 	}
 }
