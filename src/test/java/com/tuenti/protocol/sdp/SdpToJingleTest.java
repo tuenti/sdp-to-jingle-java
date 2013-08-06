@@ -30,6 +30,8 @@ public class SdpToJingleTest {
 			+ "m=audio 36798 RTP/AVPF 103 104 110 107 9 102 108 0 8 106 105 13 127 126\r\n"
 			+ "c=IN IP4 172.22.76.221\r\n"
 			+ "a=rtcp:36798 IN IP4 172.22.76.221\r\n"
+			+ "a=ice-ufrag:YuWMyUbmK/CX6awo\r\n"
+			+ "a=ice-pwd:DpueNNn6/r6TTRFMqNWw0v/c\r\n"
 			+ "a=candidate:1 2 udp 1 172.22.76.221 47216 typ host generation 0\r\n"
 			+ "a=candidate:1 1 udp 1 172.22.76.221 48235 typ host generation 0\r\n"
 			+ "a=candidate:1 2 udp 2 172.22.76.221 36798 typ srflx raddr 10.0.34.44 rport 48296 generation 0\r\n"
@@ -157,11 +159,16 @@ public class SdpToJingleTest {
 		}
 		Assert.assertTrue(rawUdpExts.get(0).getCandidateList().get(0).getGeneration() == 0);
 
+		// ICE
 		List<IceUdpTransportPacketExtension> iceUdpExts = audio.getChildExtensionsOfType(IceUdpTransportPacketExtension.class);
 		iceUdpExts = Utils.filterByClass(iceUdpExts, IceUdpTransportPacketExtension.class);
 		Assert.assertEquals(1, iceUdpExts.size());
+		IceUdpTransportPacketExtension icePacket;
 		for (int i = 0; i < iceUdpExts.size(); ++i) {
-			Assert.assertEquals(4, iceUdpExts.get(i).getCandidateList().size());
+			icePacket = iceUdpExts.get(i);
+			Assert.assertEquals(4, icePacket.getCandidateList().size());
+			Assert.assertEquals("YuWMyUbmK/CX6awo", icePacket.getUfrag());
+			Assert.assertEquals("DpueNNn6/r6TTRFMqNWw0v/c", icePacket.getPassword());
 		}
 		verifyCandidateExtension(iceUdpExts.get(0).getCandidateList().get(1), 1, "1", "udp", 1, 0,
 				CandidateType.host, "172.22.76.221", 48235);

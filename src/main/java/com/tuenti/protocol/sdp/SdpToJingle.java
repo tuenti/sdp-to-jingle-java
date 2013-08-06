@@ -50,11 +50,21 @@ public class SdpToJingle {
 	 * Creates a new {@link IceUdpTransportPacketExtension} based on the passed in {@link Attribute}[].
 	 *
 	 * @param candidateAttrs {@link Attribute}[] - List of candidates.
+	 * @param userFragment {@link Attribute} SDP attribute holding the ICE user fragment.
+	 * @param password {@link Attribute} SDP attribute holding the ICE password.
 	 * @return A new {@link IceUdpTransportPacketExtension}.
 	 */
-	private static IceUdpTransportPacketExtension getIceUdpTransportPacketExtension(final Attribute[] candidateAttrs) {
+	private static IceUdpTransportPacketExtension getIceUdpTransportPacketExtension(final Attribute[] candidateAttrs,
+			final Attribute userFragment, final Attribute password) {
+
 		CandidatePacketExtension candidateExtension = null;
 		IceUdpTransportPacketExtension iceUdpExtension = new IceUdpTransportPacketExtension();
+		if (userFragment != null) {
+			iceUdpExtension.setUfrag(userFragment.getValue());
+		}
+		if (password != null) {
+			iceUdpExtension.setPassword(password.getValue());
+		}
 
 		for (Attribute attr : candidateAttrs) {
 			String[] params = attr.getValue().split("[ ]");
@@ -103,8 +113,11 @@ public class SdpToJingle {
 		try {
 			result.setAction(JingleAction.parseString(JingleAction.TRANSPORT_INFO.toString()));
 			Attribute[] candidateAttributes = sessionDescription.getAttributes("candidate");
+			Attribute userFragment = sessionDescription.getAttribute("ice-ufrag");
+			Attribute password = sessionDescription.getAttribute("ice-pwd");
 			// TODO: What about TCP?
-			IceUdpTransportPacketExtension iceUdpExtension = getIceUdpTransportPacketExtension(candidateAttributes);
+			IceUdpTransportPacketExtension iceUdpExtension = getIceUdpTransportPacketExtension(candidateAttributes,
+					userFragment, password);
 
 			content.addChildExtension(iceUdpExtension);
 			result.addContent(content);
@@ -173,9 +186,16 @@ public class SdpToJingle {
 				List<IceUdpTransportPacketExtension> iceUdpExts = content.getChildExtensionsOfType(IceUdpTransportPacketExtension.class);
 				iceUdpExts = Utils.filterByClass(iceUdpExts, IceUdpTransportPacketExtension.class);
 				for (IceUdpTransportPacketExtension iceUdpExt : iceUdpExts) {
-					// "a=candidate:1 2 udp 1 172.22.76.221 47216 typ host generation 0"
+					// ICE user fragment
+					Attribute userFragment = new Attribute("ice-ufrag", iceUdpExt.getUfrag());
+					mediaDescription.addAttribute(userFragment);
+
+					// ICE password
+					Attribute password = new Attribute("ice-pwd", iceUdpExt.getPassword());
+					mediaDescription.addAttribute(password);
 					// There can (or better should) be multiple candidate tags inside one transport tag.
 					for (CandidatePacketExtension candidateExtension : iceUdpExt.getChildExtensionsOfType(CandidatePacketExtension.class)) {
+						// "a=candidate:1 2 udp 1 172.22.76.221 47216 typ host generation 0"
 						String value = iceCandidateLineFromJingle(candidateExtension, true);
 						Attribute iceUdpAttr = new Attribute("candidate", value);
 						mediaDescription.addAttribute(iceUdpAttr);
@@ -260,7 +280,7 @@ public class SdpToJingle {
 	// Things that remain to be done:
 	//  * Generate the <encription><crypto> element from the "crypto" line of SDP.
 	//  * Generate the <streams><stream> elements from the "ssrc" lines of SDP.
-	public static JingleIQ jingleFromSdp(SessionDescription sdp) {
+	public static JingleIQ jingleFromSdp(final SessionDescription sdp) {
 		JingleIQ result = new JingleIQ();
 		result.setType(IQ.Type.SET);
 		
@@ -366,7 +386,11 @@ public class SdpToJingle {
 
 			// TODO: What about TCP?
 			Attribute[] candidateAttributes = mediaDescription.getAttributes("candidate");
-			IceUdpTransportPacketExtension iceUdpExt = getIceUdpTransportPacketExtension(candidateAttributes);
+			Attribute userFragment = mediaDescription.getAttribute("ice-ufrag");
+			Attribute password = mediaDescription.getAttribute("ice-pwd");
+			// TODO: DTLS-SRTP (fingerprint).
+			IceUdpTransportPacketExtension iceUdpExt = getIceUdpTransportPacketExtension(candidateAttributes,
+					userFragment, password);
 			content.addChildExtension(iceUdpExt);
 
 			result.addContent(content);
