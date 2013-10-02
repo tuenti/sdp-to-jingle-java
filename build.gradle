@@ -1,0 +1,14 @@
+apply plugin: 'java'
+
+repositories {
+    mavenCentral()
+}
+
+
+dependencies {
+    compile group: 'jivesoftware', name: 'smack', version: '3.1.0'
+    compile group: 'junit', name: 'junit', version: '4.11'
+    compile group: 'ch.imvs', name: 'sdes4j', version: '1.1.1'
+    compile group: 'net.sourceforge.jsdp', name: 'jsdp', version: '1.1'
+    compile group: 'org.hamcrest', name: 'hamcrest-core', version: '1.3'
+}
