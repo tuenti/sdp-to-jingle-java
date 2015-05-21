@@ -65,3 +65,11 @@ IceCandidate webrtcIceCandidate = new IceCandidate("audio", 0, sdpLine);
 // Add to PeerConnection.
 peerConnection.addIceCandidate(webrtcIceCandidate);
 ```
+
+Credits & Contact
+
+sdp-to-jingle-java was created by Tuenti Technologies S.L.. You can follow Tuenti engineering team on Twitter @tuentieng.
+
+License
+
+sdp-to-jingle-java is available under the Apache License, Version 2.0. See LICENSE file for more info.
